@@ -1,11 +1,11 @@
-name = "danogo2023/bonds/issue-bond"
+name = "danogo2023/bond-issue"
 version = "1.0.0"
 license = "Apache-2.0"
-description = "Danogo Issue Bond"
+description = "Danogo Bond Issue"
 
 [repository]
-user = "danogo2023/bonds"
-project = "issue-bond"
+user = "danogo2023"
+project = "bond-issue"
 platform = "github"
 
 [[dependencies]]

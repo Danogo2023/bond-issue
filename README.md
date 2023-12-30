@@ -1,16 +1,4 @@
-# Danogo Issue Bond
-
-Write validators in the `validators` folder, and supporting functions in the `lib` folder using `.ak` as a file extension.
-
-For example, as `validators/always_true.ak`
-
-```gleam
-validator {
-  fn spend(_datum: Data, _redeemer: Data, _context: Data) -> Bool {
-    True
-  }
-}
-```
+# Danogo Bond Issue
 
 ## Building
 
@@ -19,14 +7,6 @@ aiken build
 ```
 
 ## Testing
-
-You can write tests in any module using the `test` keyword. For example:
-
-```gleam
-test foo() {
-  1 + 1 == 2
-}
-```
 
 To run all tests, simply do:
 
