@@ -7,3 +7,5 @@ docs/
 plutus.json
 aiken.lock
 debug.ak
+deno.json
+deno.lock
