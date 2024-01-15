@@ -26,6 +26,4 @@ pub type BondIssueAction {
   BondPayInterest { pid: PolicyId }
   BondChangeStakeKey { pid: PolicyId }
   RedeemFee { pid: PolicyId }
-  ForceRedeem { pid: PolicyId }
-  GarbageCollector
 }

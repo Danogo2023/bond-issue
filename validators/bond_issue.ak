@@ -7,7 +7,6 @@ use borrow_position/change_stake_key
 use borrow_position/pay_interest
 use borrow_position/redeem_bond
 use borrow_position/redeem_fee
-use borrow_position/redeem_force
 use borrow_request/bond_create
 use borrow_request/borrower_nft
 use borrow_request/request_nft
@@ -16,9 +15,8 @@ use common/types.{ScriptKeyHash} as common_types
 use common/util.{get_spending_input}
 use issue_bond/types.{
   BondChangeStakeKey, BondCreate, BondIssueAction, BondPayInterest, BondRedeem,
-  ForceRedeem, GarbageCollector, RedeemFee, RequestCreate, RequestUpdate,
+  RedeemFee, RequestCreate, RequestUpdate,
 } as issue_bond_types
-use issue_bond/utils
 
 // num deploy 1
 validator(cfg: BondIssueConfig) {
@@ -28,45 +26,32 @@ validator(cfg: BondIssueConfig) {
     when ac is {
       RequestCreate { out_ref, req_skh, pid: req_pid } ->
         borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid, out_ref)
-      ForceRedeem { .. } -> borrower_nft.burning_force_redeem(tx, borrower_pid)
-      _ ->
-        fail @"minting borrower nft only support RequestCreate | ForceRedeem action"
+      _ -> fail @"minting borrower nft only support RequestCreate action"
     }
   }
 }
 
 // num deploy 2
-validator(cfg: BondIssueConfig, borrower_pid: PolicyId, num_epoch_force: Int) {
-  fn spend_position(d: Data, ac: BondIssueAction, ctx: ScriptContext) -> Bool {
+validator(cfg: BondIssueConfig, borrower_pid: PolicyId) {
+  fn spend_position(
+    sdt: BondDatum,
+    ac: BondIssueAction,
+    ctx: ScriptContext,
+  ) -> Bool {
     let tx = ctx.transaction
-    if ac == GarbageCollector {
-      utils.garbage_collector_position(d, tx, cfg)
-    } else {
-      expect sdt: BondDatum = d
-      let sbond = get_spending_input(ctx).output
-      let addr = sbond.address
-      when ac is {
-        BondRedeem { pid: nft_pid } ->
-          redeem_bond.spending_with_fee(cfg, tx, sbond, addr, sdt, nft_pid)
-        BondPayInterest { pid: nft_pid } ->
-          pay_interest.spending_without_fee(tx, sbond, addr, sdt, nft_pid)
-        BondChangeStakeKey { pid: nft_pid } ->
-          change_stake_key.spending(tx, sbond, addr, sdt, nft_pid, borrower_pid)
-        RedeemFee { pid: nft_pid } ->
-          redeem_fee.spending(cfg, tx, sbond, addr, sdt, nft_pid)
-        ForceRedeem { pid: nft_pid } ->
-          redeem_force.spending(
-            cfg,
-            tx,
-            sbond,
-            addr,
-            sdt,
-            nft_pid,
-            num_epoch_force,
-          )
-        _ ->
-          fail @"spending bond position only support BondRedeem | BondPayInterest | BondChangeStakeKey | RedeemFee | ForceRedeem action"
-      }
+    let sbond = get_spending_input(ctx).output
+    let addr = sbond.address
+    when ac is {
+      BondRedeem { pid: nft_pid } ->
+        redeem_bond.spending_with_fee(cfg, tx, sbond, addr, sdt, nft_pid)
+      BondPayInterest { pid: nft_pid } ->
+        pay_interest.spending_without_fee(tx, sbond, addr, sdt, nft_pid)
+      BondChangeStakeKey { pid: nft_pid } ->
+        change_stake_key.spending(tx, sbond, addr, sdt, nft_pid, borrower_pid)
+      RedeemFee { pid: nft_pid } ->
+        redeem_fee.spending(cfg, tx, sbond, addr, sdt, nft_pid)
+      _ ->
+        fail @"spending bond position only support BondRedeem | BondPayInterest | BondChangeStakeKey | RedeemFee action"
     }
   }
 }
@@ -81,9 +66,7 @@ validator(cfg: BondIssueConfig, bond_skh: ScriptKeyHash) {
         bond_nft.minting(cfg, tx, req_skh, bond_skh, nft_pid, req_pid, out_ref)
       BondRedeem { pid: bond_pid } ->
         bond_nft.burning_bond_redeem(tx, nft_pid, bond_pid)
-      ForceRedeem { pid: _ } -> bond_nft.burning_force_redeem(tx, nft_pid)
-      _ ->
-        fail @"minting bond nft only support BondCreate | BondRedeem | ForceRedeem action"
+      _ -> fail @"minting bond nft only support BondCreate | BondRedeem action"
     }
   }
 }
@@ -118,33 +101,31 @@ validator(
   nft_pid: PolicyId,
   bond_pid: PolicyId,
 ) {
-  fn spend_request(d: Data, ac: BondIssueAction, ctx: ScriptContext) -> Bool {
-    let tx = ctx.transaction
-    if ac == GarbageCollector {
-      utils.garbage_collector_request(d, tx, cfg)
-    } else {
-      expect sdt: RequestDatum = d
-      when ac is {
-        BondCreate {
-          out_ref: _out_ref,
-          req_skh: _req_skh,
-          bond_skh: _bond_skh,
-          pid: req_pid,
-        } ->
-          bond_create.spending(
-            cfg,
-            ctx,
-            sdt,
-            bond_skh,
-            nft_pid,
-            bond_pid,
-            req_pid,
-          )
-        RequestUpdate { pid: req_pid } ->
-          request_update.spending(cfg, tx, sdt, req_pid)
-        _ ->
-          fail @"spending borrow request only support BondCreate | RequestUpdate action"
-      }
+  fn spend_request(
+    sdt: RequestDatum,
+    ac: BondIssueAction,
+    ctx: ScriptContext,
+  ) -> Bool {
+    when ac is {
+      BondCreate {
+        out_ref: _out_ref,
+        req_skh: _req_skh,
+        bond_skh: _bond_skh,
+        pid: req_pid,
+      } ->
+        bond_create.spending(
+          cfg,
+          ctx,
+          sdt,
+          bond_skh,
+          nft_pid,
+          bond_pid,
+          req_pid,
+        )
+      RequestUpdate { pid: req_pid } ->
+        request_update.spending(cfg, ctx.transaction, sdt, req_pid)
+      _ ->
+        fail @"spending borrow request only support BondCreate | RequestUpdate action"
     }
   }
 }
