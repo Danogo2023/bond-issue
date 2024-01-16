@@ -41,6 +41,7 @@ pub fn spending_without_fee(
       let interest_min = value.lovelace_of(sbond_dt.epo_rewards)
       let interest_max = interest_min * sbond_dt.duration
       and {
+        (sbond_dt.fee > 0)?,
         (obond_assets == sbond_assets)?,
         (obond_dt.epo_rewards == sbond_dt.epo_rewards)?,
         (obond_dt.duration == sbond_dt.duration)?,

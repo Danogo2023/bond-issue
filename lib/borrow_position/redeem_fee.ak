@@ -1,9 +1,9 @@
 use aiken/list
 use aiken/transaction.{InlineDatum, Output, Transaction}
-use aiken/transaction/credential.{Address}
+use aiken/transaction/credential.{Address, StakeCredential}
 use aiken/transaction/value.{PolicyId, Value}
 use bond_issue/types.{BondDatum, BondIssueConfig} as bond_issue_types
-use common/time.{get_current_epoch_with_ttl}
+use issue_bond/utils as issue_bond_utils
 
 pub fn spending(
   cfg: BondIssueConfig,
@@ -12,6 +12,7 @@ pub fn spending(
   sbond_addr: Address,
   sbond_dt: BondDatum,
   nft_pid: PolicyId,
+  default_stake_cred: StakeCredential,
 ) -> Bool {
   when
     list.filter(
@@ -24,29 +25,11 @@ pub fn spending(
     [ibond] ->
       if (ibond.output.address == sbond_addr)? {
         let sbond_balance = value.lovelace_of(sbond.value)
-        let epoch_curr =
-          get_current_epoch_with_ttl(
-            tx.validity_range,
-            cfg.epoch,
-            cfg.platform.tx_ttl,
-            cfg.slot.slot_length,
-          )
-        let epoch_start = sbond_dt.start + cfg.epoch.epoch_boundary_as_epoch
-        let epoch_end = epoch_start + sbond_dt.duration
-
-        let epoch_passed = epoch_curr - epoch_start + 1
-        // let epoch_remain = epoch_end - epoch_passed
-        let epoch_required_premium = epoch_passed + sbond_dt.buffer
         let sbond_principal =
           sbond_dt.bond_amount * cfg.platform.bond_face_value
         let sbond_interest_paid = sbond_balance - sbond_principal
-        let sbond_paid_epoch =
-          sbond_interest_paid / value.lovelace_of(sbond_dt.epo_rewards)
         and {
-          or {
-            (epoch_curr >= epoch_end)?,
-            (sbond_paid_epoch < epoch_required_premium)?,
-          },
+          issue_bond_utils.bond_closable(cfg, tx, sbond_dt, sbond_interest_paid),
           (sbond_dt.fee > 0)?,
           redeem_valid(
             cfg,
@@ -57,6 +40,7 @@ pub fn spending(
             sbond_dt,
             nft_pid,
             sbond_interest_paid,
+            default_stake_cred,
           ),
         }
       } else {
@@ -75,6 +59,7 @@ pub fn redeem_valid(
   sbond_dt: BondDatum,
   nft_pid: PolicyId,
   sbond_interest_paid: Int,
+  default_stake_cred: StakeCredential,
 ) -> Bool {
   when
     list.foldr(
@@ -82,7 +67,7 @@ pub fn redeem_valid(
       (None, 0),
       fn(o, z) {
         if and {
-          o.address == sbond_addr,
+          o.address.payment_credential == sbond_addr.payment_credential,
           value.quantity_of(o.value, nft_pid, sbond_dt.token_name) == 1,
         } {
           if (z.1st == None)? {
@@ -111,6 +96,12 @@ pub fn redeem_valid(
         }
       let redeem_val = sbond_interest_paid * sbond_dt.fee / cfg.basis.base
       and {
+        or {
+          // or dont change bond stake key
+          (obond.address == sbond_addr)?,
+          // or change bond stake key to default stake key
+          (obond.address.stake_credential == Some(default_stake_cred))?,
+        },
         (obond_dt.bond_symbol == sbond_dt.bond_symbol)?,
         (obond_dt.token_name == sbond_dt.token_name)?,
         (obond_dt.borrower == sbond_dt.borrower)?,

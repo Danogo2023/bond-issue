@@ -1,4 +1,5 @@
 use aiken/transaction.{Mint, ScriptContext}
+use aiken/transaction/credential.{StakeCredential}
 use aiken/transaction/value.{PolicyId}
 use bond_issue/types.{BondDatum, BondIssueConfig, RequestDatum}
 use borrow_position/bond_nft
@@ -32,7 +33,11 @@ validator(cfg: BondIssueConfig) {
 }
 
 // num deploy 2
-validator(cfg: BondIssueConfig, borrower_pid: PolicyId) {
+validator(
+  cfg: BondIssueConfig,
+  borrower_pid: PolicyId,
+  default_stake_cred: StakeCredential,
+) {
   fn spend_position(
     sdt: BondDatum,
     ac: BondIssueAction,
@@ -47,9 +52,25 @@ validator(cfg: BondIssueConfig, borrower_pid: PolicyId) {
       BondPayInterest { pid: nft_pid } ->
         pay_interest.spending_without_fee(tx, sbond, addr, sdt, nft_pid)
       BondChangeStakeKey { pid: nft_pid } ->
-        change_stake_key.spending(tx, sbond, addr, sdt, nft_pid, borrower_pid)
+        change_stake_key.spending(
+          cfg,
+          tx,
+          sbond,
+          addr,
+          sdt,
+          nft_pid,
+          borrower_pid,
+        )
       RedeemFee { pid: nft_pid } ->
-        redeem_fee.spending(cfg, tx, sbond, addr, sdt, nft_pid)
+        redeem_fee.spending(
+          cfg,
+          tx,
+          sbond,
+          addr,
+          sdt,
+          nft_pid,
+          default_stake_cred,
+        )
       _ ->
         fail @"spending bond position only support BondRedeem | BondPayInterest | BondChangeStakeKey | RedeemFee action"
     }

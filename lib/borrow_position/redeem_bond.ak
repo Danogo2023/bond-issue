@@ -3,7 +3,7 @@ use aiken/transaction.{InlineDatum, Output, Transaction}
 use aiken/transaction/credential.{Address}
 use aiken/transaction/value.{PolicyId, Value}
 use bond_issue/types.{BondDatum, BondIssueConfig} as bond_issue_types
-use common/time.{get_current_epoch_with_ttl}
+use issue_bond/utils as issue_bond_utils
 
 pub fn spending_with_fee(
   cfg: BondIssueConfig,
@@ -24,29 +24,11 @@ pub fn spending_with_fee(
     [ibond] ->
       if (ibond.output.address == sbond_addr)? {
         let sbond_balance = value.lovelace_of(sbond.value)
-        let epoch_curr =
-          get_current_epoch_with_ttl(
-            tx.validity_range,
-            cfg.epoch,
-            cfg.platform.tx_ttl,
-            cfg.slot.slot_length,
-          )
-        let epoch_start = sbond_dt.start + cfg.epoch.epoch_boundary_as_epoch
-        let epoch_end = epoch_start + sbond_dt.duration
-
-        let epoch_passed = epoch_curr - epoch_start + 1
-        // let epoch_remain = epoch_end - epoch_passed
-        let epoch_required_premium = epoch_passed + sbond_dt.buffer
         let sbond_principal =
           sbond_dt.bond_amount * cfg.platform.bond_face_value
         let sbond_interest_paid = sbond_balance - sbond_principal
-        let sbond_paid_epoch =
-          sbond_interest_paid / value.lovelace_of(sbond_dt.epo_rewards)
         and {
-          or {
-            (epoch_curr >= epoch_end)?,
-            (sbond_paid_epoch < epoch_required_premium)?,
-          },
+          issue_bond_utils.bond_closable(cfg, tx, sbond_dt, sbond_interest_paid),
           redeem_with_fee_valid(
             cfg,
             tx,
@@ -155,27 +137,10 @@ pub fn spending_without_fee(
   nft_pid: PolicyId,
 ) -> Bool {
   let sbond_balance = value.lovelace_of(sbond.value)
-  let epoch_curr =
-    get_current_epoch_with_ttl(
-      tx.validity_range,
-      cfg.epoch,
-      cfg.platform.tx_ttl,
-      cfg.slot.slot_length,
-    )
-  let epoch_start = sbond_dt.start + cfg.epoch.epoch_boundary_as_epoch
-  let epoch_end = epoch_start + sbond_dt.duration
-
-  let epoch_passed = epoch_curr - epoch_start + 1
-  // let epoch_remain = epoch_end - epoch_passed
-  let epoch_required_premium = epoch_passed + sbond_dt.buffer
   let sbond_principal = sbond_dt.bond_amount * cfg.platform.bond_face_value
-  let sbond_paid = sbond_balance - sbond_principal
-  let sbond_paid_epoch = sbond_paid / value.lovelace_of(sbond_dt.epo_rewards)
+  let sbond_interest_paid = sbond_balance - sbond_principal
   and {
-    or {
-      (epoch_curr >= epoch_end)?,
-      (sbond_paid_epoch < epoch_required_premium)?,
-    },
+    issue_bond_utils.bond_closable(cfg, tx, sbond_dt, sbond_interest_paid),
     redeem_without_fee_valid(
       tx,
       sbond_balance,
