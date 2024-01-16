@@ -38,7 +38,6 @@ fn build_platform_cfg() {
     min_requested: 100,
     min_apr: 200,
     min_duration: 6,
-    garbage_addr: credential.from_verification_key("garbage_addr"),
   }
 }
 

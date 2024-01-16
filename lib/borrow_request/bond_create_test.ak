@@ -50,7 +50,6 @@ test succ_bond_create() {
         min_requested: 100,
         min_apr: 200,
         min_duration: 6,
-        garbage_addr: credential.from_verification_key("garbage_addr"),
       },
     }
   let owner_addr = credential.from_verification_key("owner")
