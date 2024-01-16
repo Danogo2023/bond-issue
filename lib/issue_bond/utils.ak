@@ -4,7 +4,9 @@ use aiken/math
 use aiken/transaction.{Input, Output, Transaction}
 use aiken/transaction/credential.{ScriptCredential, VerificationKeyCredential}
 use aiken/transaction/value.{AssetName, PolicyId}
-use bond_issue/types.{BondIssueConfig, RequestDatum} as bond_issue_types
+use bond_issue/types.{BondDatum, BondIssueConfig, RequestDatum}
+use common/time.{get_current_epoch_with_ttl}
+use common/types.{Lovelace} as common_types
 
 pub fn get_burn_token_names(tx: Transaction, pid: PolicyId) -> List<AssetName> {
   dict.foldr(
@@ -98,5 +100,40 @@ pub fn check_output_request_base(
     (oreq_dt.fee >= cfg.platform.fee)?,
     (oreq_dt.epo_rewards >= ( oreq_dt.requested - oreq_dt.issued ) * cfg.platform.bond_face_value * oreq_dt.apr / cfg.basis.base / cfg.epoch.year_to_epoch)?,
     (value.lovelace_of(o.value) >= oreq_dt.epo_rewards * oreq_dt.prepaid)?,
+  }
+}
+
+pub fn bond_closable(
+  cfg: BondIssueConfig,
+  tx: Transaction,
+  sbond_dt: BondDatum,
+  sbond_interest_paid: Lovelace,
+) -> Bool {
+  let epoch_curr =
+    get_current_epoch_with_ttl(
+      tx.validity_range,
+      cfg.epoch,
+      cfg.platform.tx_ttl,
+      cfg.slot.slot_length,
+    )
+  let epoch_start = sbond_dt.start + cfg.epoch.epoch_boundary_as_epoch
+  let epoch_end = epoch_start + sbond_dt.duration
+  let epoch_passed =
+    if epoch_curr >= epoch_end {
+      sbond_dt.duration
+    } else {
+      epoch_curr - epoch_start + 1
+    }
+  let epoch_required_premium =
+    epoch_passed + if epoch_curr >= epoch_end {
+      0
+    } else {
+      sbond_dt.buffer
+    }
+  let sbond_paid_epoch =
+    sbond_interest_paid / value.lovelace_of(sbond_dt.epo_rewards)
+  or {
+    (epoch_curr >= epoch_end)?,
+    (sbond_paid_epoch < epoch_required_premium)?,
   }
 }

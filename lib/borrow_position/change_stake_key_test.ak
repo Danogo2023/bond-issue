@@ -1,6 +1,7 @@
 use aiken/bytearray
 use aiken/cbor
 use aiken/dict
+use aiken/interval
 use aiken/list
 use aiken/string
 use aiken/transaction.{
@@ -8,16 +9,38 @@ use aiken/transaction.{
   TransactionId,
 }
 use aiken/transaction/credential.{Address, Inline, VerificationKeyCredential}
-use aiken/transaction/value.{PolicyId}
-use bond_issue/types.{BondDatum, PlatformConfig} as bond_issue_types
+use aiken/transaction/value.{PolicyId, ada_asset_name, ada_policy_id}
+use bond_issue/types.{BondDatum,
+  BondIssueConfig, PlatformConfig} as bond_issue_types
 use borrow_position/change_stake_key
+use common/time.{
+  BasisPoints, get_epoch_config_mainnet, get_slot_config_network_mainnet,
+  relative_epoch_to_posix_time_start,
+}
 use issue_bond/types.{BondChangeStakeKey}
 
 const nft_pid = "nft_pid"
 
 const bond_skh = "bond_skh"
 
+const ada = 1_000_000
+
 // =================Builders===================
+
+fn build_platform_cfg() {
+  PlatformConfig {
+    bond_face_value: 100_000_000,
+    fee: 500,
+    fee_addr: credential.from_verification_key("fee_addr"),
+    tx_ttl: 3 * 60,
+    min_buffer: 6,
+    prepaid_plus: 3,
+    min_requested: 100,
+    min_apr: 200,
+    min_duration: 6,
+    garbage_addr: credential.from_verification_key("garbage_addr"),
+  }
+}
 
 fn get_datum(self: Output) -> Data {
   expect InlineDatum(datum) = self.datum
@@ -30,7 +53,9 @@ fn get_bond_datum(self: Output) {
 }
 
 fn build_bond_output(datum: BondDatum, stake: ByteArray) {
-  let locked_value = 199999
+  let cfg = build_platform_cfg()
+  let locked_value =
+    ( datum.bond_amount + datum.buffer ) * cfg.bond_face_value + 2 * ada
   Output {
     address: credential.from_script(bond_skh)
       |> credential.with_delegation_key(stake),
@@ -41,18 +66,12 @@ fn build_bond_output(datum: BondDatum, stake: ByteArray) {
   }
 }
 
-fn build_cfg() {
-  PlatformConfig {
-    bond_face_value: 100_000_000,
-    fee: 500,
-    fee_addr: credential.from_verification_key("fee_addr"),
-    tx_ttl: 3 * 60,
-    min_buffer: 6,
-    prepaid_plus: 3,
-    min_requested: 100,
-    min_apr: 200,
-    min_duration: 6,
-    garbage_addr: credential.from_verification_key("garbage_addr"),
+fn build_bond_issue_cfg() {
+  BondIssueConfig {
+    slot: get_slot_config_network_mainnet(),
+    epoch: get_epoch_config_mainnet(),
+    basis: BasisPoints { base: 10_000, min: 1, max: 9_999 },
+    platform: build_platform_cfg(),
   }
 }
 
@@ -86,6 +105,12 @@ fn script_purpose_compare(a: ScriptPurpose, b: ScriptPurpose) {
   )
 }
 
+fn get_tx_validity_range() {
+  let cfg = build_bond_issue_cfg()
+  let tx_at = relative_epoch_to_posix_time_start(780, cfg.epoch)
+  interval.between(tx_at, tx_at + 30_000)
+}
+
 fn build_tx(bonds: List<(Input, List<Output>)>) {
   let t = transaction.placeholder()
   let (inputs, outputs, redeemers) =
@@ -110,6 +135,7 @@ fn build_tx(bonds: List<(Input, List<Output>)>) {
   (
     Transaction {
       ..transaction.placeholder(),
+      validity_range: get_tx_validity_range(),
       redeemers: redeemers,
       inputs: inputs,
       outputs: outputs,
@@ -129,19 +155,26 @@ fn set_bond_datum(self: Output, updater: fn(BondDatum) -> BondDatum) {
 // =================Implementation===================
 
 fn validate(output_desriptor: fn(Output) -> Output) {
-  let cfg = build_cfg()
+  let platform_cfg = build_platform_cfg()
+  let bond_issue_cfg =
+    BondIssueConfig {
+      slot: get_slot_config_network_mainnet(),
+      epoch: get_epoch_config_mainnet(),
+      basis: BasisPoints { base: 10_000, min: 1, max: 9_999 },
+      platform: platform_cfg,
+    }
+
   let bond_datum =
     BondDatum {
-      epo_rewards: value.from_lovelace(1_000_000_000)
-        |> value.add("bond_symbol_1", "bond_name_1", 1),
+      epo_rewards: value.from_lovelace(1 * ada),
       bond_symbol: "bond_symbol_1",
       token_name: "bond_name_1",
       bond_amount: 100,
       fee: 500,
       borrower: "borrower_1",
       start: 450,
-      buffer: cfg.min_buffer,
-      duration: cfg.min_duration,
+      buffer: platform_cfg.min_buffer,
+      duration: platform_cfg.min_duration,
     }
   let sbond =
     Input {
@@ -150,6 +183,7 @@ fn validate(output_desriptor: fn(Output) -> Output) {
     }
   expect (tx, [bond]) = build_tx([(sbond, [sbond.output |> output_desriptor])])
   change_stake_key.constraint(
+    cfg: bond_issue_cfg,
     tx: tx,
     sbond: bond,
     sbond_addr: bond.address,
@@ -384,5 +418,151 @@ test fail_when_setting_incorrect_nft_name() fail {
         |> add_asset(nft_pid, datum.token_name, -1)
         |> add_asset(nft_pid, "other_name", 1)
     },
+  )
+}
+
+test fail_when_changing_stake_key_at_maturity_date() {
+  let platform_cfg = build_platform_cfg()
+  let bond_issue_cfg =
+    BondIssueConfig {
+      slot: get_slot_config_network_mainnet(),
+      epoch: get_epoch_config_mainnet(),
+      basis: BasisPoints { base: 10_000, min: 1, max: 9_999 },
+      platform: platform_cfg,
+    }
+
+  let bond_datum =
+    BondDatum {
+      epo_rewards: value.from_lovelace(1_000_000_000),
+      bond_symbol: "bond_symbol_1",
+      token_name: "bond_name_1",
+      bond_amount: 100,
+      fee: 500,
+      borrower: "borrower_1",
+      start: 450,
+      buffer: platform_cfg.min_buffer,
+      duration: platform_cfg.min_duration,
+    }
+  let sbond =
+    Input {
+      output_reference: OutputReference(TransactionId("tx_sbond_1"), 0),
+      output: build_bond_output(bond_datum, "owner"),
+    }
+  expect (tx, [bond]) =
+    build_tx(
+      [(sbond, [sbond.output |> set_stake_credential(Some("new_owner"))])],
+    )
+  let end_poch_start_at_posix_time =
+    relative_epoch_to_posix_time_start(
+      bond_issue_cfg.epoch.epoch_boundary_as_epoch + bond_datum.duration + bond_datum.start,
+      bond_issue_cfg.epoch,
+    )
+  !change_stake_key.constraint(
+    cfg: bond_issue_cfg,
+    tx: Transaction {
+      ..tx,
+      validity_range: interval.between(
+        end_poch_start_at_posix_time,
+        end_poch_start_at_posix_time + 30_000,
+      ),
+    },
+    sbond: bond,
+    sbond_addr: bond.address,
+    sbond_dt: get_bond_datum(bond),
+    nft_pid: nft_pid,
+  )
+}
+
+test fail_when_changing_stake_key_after_maturity_date() {
+  let platform_cfg = build_platform_cfg()
+  let bond_issue_cfg =
+    BondIssueConfig {
+      slot: get_slot_config_network_mainnet(),
+      epoch: get_epoch_config_mainnet(),
+      basis: BasisPoints { base: 10_000, min: 1, max: 9_999 },
+      platform: platform_cfg,
+    }
+
+  let bond_datum =
+    BondDatum {
+      epo_rewards: value.from_lovelace(1 * ada),
+      bond_symbol: "bond_symbol_1",
+      token_name: "bond_name_1",
+      bond_amount: 100,
+      fee: 500,
+      borrower: "borrower_1",
+      start: 450,
+      buffer: platform_cfg.min_buffer,
+      duration: platform_cfg.min_duration,
+    }
+  let sbond =
+    Input {
+      output_reference: OutputReference(TransactionId("tx_sbond_1"), 0),
+      output: build_bond_output(bond_datum, "owner"),
+    }
+  expect (tx, [bond]) =
+    build_tx(
+      [(sbond, [sbond.output |> set_stake_credential(Some("new_owner"))])],
+    )
+  let end_poch_start_at_posix_time =
+    relative_epoch_to_posix_time_start(
+      1 + bond_issue_cfg.epoch.epoch_boundary_as_epoch + bond_datum.duration + bond_datum.start,
+      bond_issue_cfg.epoch,
+    )
+  !change_stake_key.constraint(
+    cfg: bond_issue_cfg,
+    tx: Transaction {
+      ..tx,
+      validity_range: interval.between(
+        end_poch_start_at_posix_time,
+        end_poch_start_at_posix_time + 30_000,
+      ),
+    },
+    sbond: bond,
+    sbond_addr: bond.address,
+    sbond_dt: get_bond_datum(bond),
+    nft_pid: nft_pid,
+  )
+}
+
+test fail_when_changing_stake_key_after_redeem_fee() {
+  let platform_cfg = build_platform_cfg()
+  let bond_issue_cfg =
+    BondIssueConfig {
+      slot: get_slot_config_network_mainnet(),
+      epoch: get_epoch_config_mainnet(),
+      basis: BasisPoints { base: 10_000, min: 1, max: 9_999 },
+      platform: platform_cfg,
+    }
+
+  let bond_datum =
+    BondDatum {
+      epo_rewards: value.from_lovelace(30 * ada),
+      bond_symbol: "bond_symbol_1",
+      token_name: "bond_name_1",
+      bond_amount: 100,
+      fee: 0,
+      borrower: "borrower_1",
+      start: 450,
+      buffer: 20,
+      duration: platform_cfg.min_duration,
+    }
+  let sbond =
+    Input {
+      output_reference: OutputReference(TransactionId("tx_sbond_1"), 0),
+      output: build_bond_output(bond_datum, "owner")
+        |> add_asset(ada_policy_id, ada_asset_name, -1500 * ada),
+    }
+  expect (tx, [bond]) =
+    build_tx(
+      [(sbond, [sbond.output |> set_stake_credential(Some("new_owner"))])],
+    )
+  !change_stake_key.constraint(
+    cfg: bond_issue_cfg,
+    tx: tx,
+    sbond: bond,
+    sbond_addr: bond.address,
+    sbond_dt: get_bond_datum(bond),
+    nft_pid: nft_pid,
   )
 }

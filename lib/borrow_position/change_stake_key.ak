@@ -2,9 +2,11 @@ use aiken/list
 use aiken/transaction.{InlineDatum, Output, Transaction}
 use aiken/transaction/credential.{Address}
 use aiken/transaction/value.{PolicyId}
-use bond_issue/types.{BondDatum}
+use bond_issue/types.{BondDatum, BondIssueConfig}
+use common/time.{get_current_epoch_with_ttl}
 
 pub fn spending(
+  cfg: BondIssueConfig,
   tx: Transaction,
   sbond: Output,
   sbond_addr: Address,
@@ -20,13 +22,32 @@ pub fn spending(
       },
     )
   is {
-    Some(_) -> constraint(tx, sbond, sbond_addr, sbond_dt, nft_pid)
+    Some(_) -> constraint(cfg, tx, sbond, sbond_addr, sbond_dt, nft_pid)
     _ ->
       fail @"borrow_position/change_stake_key.spending: not found borrower nft of bond utxo"
   }
 }
 
+fn is_before_maturity_and_not_redeem_fee(
+  cfg: BondIssueConfig,
+  tx: Transaction,
+  sbond_dt: BondDatum,
+) {
+  let epoch_curr =
+    get_current_epoch_with_ttl(
+      tx.validity_range,
+      cfg.epoch,
+      cfg.platform.tx_ttl,
+      cfg.slot.slot_length,
+    )
+  and {
+    (sbond_dt.fee > 0)?,
+    (epoch_curr < sbond_dt.start + cfg.epoch.epoch_boundary_as_epoch + sbond_dt.duration)?,
+  }
+}
+
 pub fn constraint(
+  cfg: BondIssueConfig,
   tx: Transaction,
   sbond: Output,
   sbond_addr: Address,
@@ -50,6 +71,7 @@ pub fn constraint(
             fail @"borrow_position/change_stake_key.constraint: only supports InlineDatum for bond"
         }
       and {
+        is_before_maturity_and_not_redeem_fee(cfg, tx, sbond_dt),
         (obond.address.stake_credential != None)?,
         (obond_dt.bond_symbol == sbond_dt.bond_symbol)?,
         (obond_dt.token_name == sbond_dt.token_name)?,
