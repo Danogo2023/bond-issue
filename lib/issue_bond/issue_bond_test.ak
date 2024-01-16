@@ -1144,12 +1144,14 @@ test fail_when_attempting_other_redeemer_attack_on_bond_nft_policy() fail {
          )
          and {
            bond_nft.burning_force_redeem(ctx.transaction, nft_pid),
-           bond_token.minting_with_fee(
+           bond_token.minting_without_fee(
              cfg,
              ctx.transaction,
              req_skh,
              bond_skh,
+             nft_pid,
              bond_pid,
+             spending_request.output_reference,
            ),
            bond_create.spending(
              cfg,
