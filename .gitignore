@@ -2,6 +2,9 @@
 artifacts/
 # Aiken's project working directory
 build/
+# Aiken's default documentation export
+docs/
+# 
 plutus.json
 aiken.lock
 debug.ak
