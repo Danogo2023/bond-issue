@@ -7,9 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.0.0] - 2024-01-30
+## [1.0.3] - 2024-01-30
 
-### 1.0.0
+### 1.0.3
 
 This is the first documented and supported implementation. It contains some main points:
 
@@ -33,5 +33,5 @@ This is the first documented and supported implementation. It contains some main
 
 All future Changelog entries will reference this base
 
-[unreleased]: https://github.com/danogo2023/bond-issue/compare/v1.0.0...HEAD
+[unreleased]: https://github.com/danogo2023/bond-issue/compare/v1.0.3...HEAD
 <!-- [1.0.0]: https://github.com/danogo2023/bond-issue/compare/v1.0.0-rc.0...v1.0.0 -->
