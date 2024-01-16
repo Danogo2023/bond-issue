@@ -28,24 +28,6 @@ pub fn spending(
   }
 }
 
-fn is_before_maturity_and_not_redeem_fee(
-  cfg: BondIssueConfig,
-  tx: Transaction,
-  sbond_dt: BondDatum,
-) {
-  let epoch_curr =
-    get_current_epoch_with_ttl(
-      tx.validity_range,
-      cfg.epoch,
-      cfg.platform.tx_ttl,
-      cfg.slot.slot_length,
-    )
-  and {
-    (sbond_dt.fee > 0)?,
-    (epoch_curr < sbond_dt.start + cfg.epoch.epoch_boundary_as_epoch + sbond_dt.duration)?,
-  }
-}
-
 pub fn constraint(
   cfg: BondIssueConfig,
   tx: Transaction,
@@ -87,5 +69,23 @@ pub fn constraint(
     }
     _ ->
       fail @"borrow_position/change_stake_key.constraint: bond utxo output invalid"
+  }
+}
+
+fn is_before_maturity_and_not_redeem_fee(
+  cfg: BondIssueConfig,
+  tx: Transaction,
+  sbond_dt: BondDatum,
+) {
+  let epoch_curr =
+    get_current_epoch_with_ttl(
+      tx.validity_range,
+      cfg.epoch,
+      cfg.platform.tx_ttl,
+      cfg.slot.slot_length,
+    )
+  and {
+    (sbond_dt.fee > 0)?,
+    (epoch_curr < sbond_dt.start + cfg.epoch.epoch_boundary_as_epoch + sbond_dt.duration)?,
   }
 }
