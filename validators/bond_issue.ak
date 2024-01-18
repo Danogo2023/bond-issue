@@ -1,4 +1,5 @@
-use aiken/transaction.{Mint, ScriptContext}
+use aiken/list
+use aiken/transaction.{Mint, ScriptContext, Spend}
 use aiken/transaction/credential.{StakeCredential}
 use aiken/transaction/value.{PolicyId}
 use bond_issue/types.{BondDatum, BondIssueConfig, RequestDatum}
@@ -13,7 +14,6 @@ use borrow_request/borrower_nft
 use borrow_request/request_nft
 use borrow_request/request_update
 use common/types.{ScriptKeyHash} as common_types
-use common/util.{get_spending_input}
 use issue_bond/types.{
   BondChangeStakeKey, BondCreate, BondIssueAction, BondPayInterest, BondRedeem,
   RedeemFee, RequestCreate, RequestUpdate,
@@ -43,34 +43,20 @@ validator(
     ac: BondIssueAction,
     ctx: ScriptContext,
   ) -> Bool {
+    expect Spend(out_ref) = ctx.purpose
     let tx = ctx.transaction
-    let sbond = get_spending_input(ctx).output
-    let addr = sbond.address
+    expect Some(ibond) =
+      list.find(tx.inputs, fn(i) { i.output_reference == out_ref })
+    let sbond = ibond.output
     when ac is {
       BondRedeem { pid: nft_pid } ->
-        redeem_bond.spending_with_fee(cfg, tx, sbond, addr, sdt, nft_pid)
+        redeem_bond.spending_with_fee(cfg, tx, sbond, sdt, nft_pid)
       BondPayInterest { pid: nft_pid } ->
-        pay_interest.spending_without_fee(cfg, tx, sbond, addr, sdt, nft_pid)
+        pay_interest.spending_without_fee(cfg, tx, sbond, sdt, nft_pid)
       BondChangeStakeKey { pid: nft_pid } ->
-        change_stake_key.spending(
-          cfg,
-          tx,
-          sbond,
-          addr,
-          sdt,
-          nft_pid,
-          borrower_pid,
-        )
+        change_stake_key.spending(cfg, tx, sbond, sdt, nft_pid, borrower_pid)
       RedeemFee { pid: nft_pid } ->
-        redeem_fee.spending(
-          cfg,
-          tx,
-          sbond,
-          addr,
-          sdt,
-          nft_pid,
-          default_stake_cred,
-        )
+        redeem_fee.spending(cfg, tx, sbond, sdt, nft_pid, default_stake_cred)
       _ ->
         fail @"spending bond position only support BondRedeem | BondPayInterest | BondChangeStakeKey | RedeemFee action"
     }

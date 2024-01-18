@@ -185,7 +185,6 @@ fn validate(output_desriptor: fn(Output) -> Output) {
     cfg: bond_issue_cfg,
     tx: tx,
     sbond: bond,
-    sbond_addr: bond.address,
     sbond_dt: get_bond_datum(bond),
     nft_pid: nft_pid,
   )
@@ -466,7 +465,6 @@ test fail_when_changing_stake_key_at_maturity_date() {
       ),
     },
     sbond: bond,
-    sbond_addr: bond.address,
     sbond_dt: get_bond_datum(bond),
     nft_pid: nft_pid,
   )
@@ -518,7 +516,6 @@ test fail_when_changing_stake_key_after_maturity_date() {
       ),
     },
     sbond: bond,
-    sbond_addr: bond.address,
     sbond_dt: get_bond_datum(bond),
     nft_pid: nft_pid,
   )
@@ -560,7 +557,6 @@ test fail_when_changing_stake_key_after_redeem_fee() {
     cfg: bond_issue_cfg,
     tx: tx,
     sbond: bond,
-    sbond_addr: bond.address,
     sbond_dt: get_bond_datum(bond),
     nft_pid: nft_pid,
   )

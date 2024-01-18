@@ -264,7 +264,6 @@ test succ_when_redeeming_1_bond() {
       cfg,
       tx,
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -281,7 +280,6 @@ test succ_when_redeeming_all_bonds() {
       cfg,
       tx,
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -308,7 +306,6 @@ test fail_when_burning_not_enough_bond_tokens_if_redeeming_partially() {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -334,7 +331,6 @@ test fail_when_burning_not_enough_bond_tokens_if_redeeming_all() {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -361,7 +357,6 @@ test fail_when_doesnt_burn_bond_tokens_if_redeeming_partially() {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -386,7 +381,6 @@ test fail_when_doesnt_burn_bond_tokens_if_redeeming_all() {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -412,7 +406,6 @@ test fail_when_doesnt_burn_bond_nft_if_redeeming_all() fail {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -445,7 +438,6 @@ test fail_when_burning_bond_nft_if_redeeming_partially() fail {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -488,7 +480,6 @@ test fail_when_setting_lower_epo_rewards() fail {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -529,7 +520,6 @@ test fail_when_setting_higher_epo_rewards() fail {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -570,7 +560,6 @@ test fail_when_attempting_unbounded_value_attack_on_epo_rewards() fail {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -603,7 +592,6 @@ test fail_when_setting_lower_duration() fail {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -636,7 +624,6 @@ test fail_when_setting_higher_duration() fail {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -669,7 +656,6 @@ test fail_when_setting_incorrect_bond_symbol() fail {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -702,7 +688,6 @@ test fail_when_setting_incorrect_token_name() fail {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -738,7 +723,6 @@ test fail_when_setting_lower_bond_amount() fail {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -774,7 +758,6 @@ test fail_when_setting_higher_bond_amount() fail {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -807,7 +790,6 @@ test fail_when_setting_lower_buffer() fail {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -840,7 +822,6 @@ test fail_when_setting_higher_buffer() fail {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -871,7 +852,6 @@ test fail_when_setting_lower_fee() fail {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -902,7 +882,6 @@ test fail_when_setting_higher_fee() fail {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -935,7 +914,6 @@ test fail_when_setting_incorrect_borrower() fail {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -968,7 +946,6 @@ test fail_when_setting_lower_start() fail {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -1001,7 +978,6 @@ test fail_when_setting_higher_start() fail {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -1030,7 +1006,6 @@ test fail_when_bond_out_hasnt_nft() fail {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -1060,7 +1035,6 @@ test fail_when_bond_out_has_incorrect_nft_policy() fail {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -1081,7 +1055,6 @@ test fail_when_removing_bond_when_claiming_partially() fail {
              Transaction { ..t, outputs: [lender_out, fee_out] }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -1111,7 +1084,6 @@ test fail_when_paying_lower_fee() fail {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -1142,7 +1114,6 @@ test fail_when_doesnt_pay_fee() fail {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -1174,7 +1145,6 @@ test fail_when_doesnt_pay_fee_for_protocol() fail {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -1236,7 +1206,6 @@ test fail_when_batching_bonds() fail {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -1264,7 +1233,6 @@ test succ_when_lender_redeems_early_due_to_interest_buffer_violation() {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -1288,7 +1256,6 @@ test succ_when_lender_redeems_after_maturity() {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -1316,7 +1283,6 @@ test fail_when_lender_redeems_early_but_borrower_paid_for_buffer() {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -1344,7 +1310,6 @@ test fail_when_changing_bond_stake_key() fail {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -1372,7 +1337,6 @@ test fail_when_removing_bond_stake_key() fail {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),
@@ -1412,7 +1376,6 @@ test succ_on_large_inputs_and_outputs() {
              }
            },
       sbond,
-      sbond.address,
       get_bond_datum(sbond),
       nft_pid,
     ),

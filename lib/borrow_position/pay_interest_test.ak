@@ -182,7 +182,6 @@ fn validate(output_modifier: fn(Output) -> Output) {
     cfg,
     tx: tx,
     sbond: bond,
-    sbond_addr: bond.address,
     sbond_dt: get_bond_datum(bond),
     nft_pid: nft_pid,
   )

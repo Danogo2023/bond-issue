@@ -9,7 +9,6 @@ pub fn spending(
   cfg: BondIssueConfig,
   tx: Transaction,
   sbond: Output,
-  sbond_addr: Address,
   sbond_dt: BondDatum,
   nft_pid: PolicyId,
   default_stake_cred: StakeCredential,
@@ -18,34 +17,30 @@ pub fn spending(
     list.filter(
       tx.inputs,
       fn(i) {
-        i.output.address.payment_credential == sbond_addr.payment_credential
+        i.output.address.payment_credential == sbond.address.payment_credential
       },
     )
   is {
-    [ibond] ->
-      if (ibond.output.address == sbond_addr)? {
-        let sbond_balance = value.lovelace_of(sbond.value)
-        let sbond_principal =
-          sbond_dt.bond_amount * cfg.platform.bond_face_value
-        let sbond_interest_paid = sbond_balance - sbond_principal
-        and {
-          issue_bond_utils.bond_closable(cfg, tx, sbond_dt, sbond_interest_paid),
-          (sbond_dt.fee > 0)?,
-          redeem_valid(
-            cfg,
-            tx,
-            sbond_balance,
-            value.without_lovelace(sbond.value),
-            sbond_addr,
-            sbond_dt,
-            nft_pid,
-            sbond_interest_paid,
-            default_stake_cred,
-          ),
-        }
-      } else {
-        False
+    [_ibond] -> {
+      let sbond_balance = value.lovelace_of(sbond.value)
+      let sbond_principal = sbond_dt.bond_amount * cfg.platform.bond_face_value
+      let sbond_interest_paid = sbond_balance - sbond_principal
+      and {
+        issue_bond_utils.bond_closable(cfg, tx, sbond_dt, sbond_interest_paid),
+        (sbond_dt.fee > 0)?,
+        redeem_valid(
+          cfg,
+          tx,
+          sbond_balance,
+          value.without_lovelace(sbond.value),
+          sbond.address,
+          sbond_dt,
+          nft_pid,
+          sbond_interest_paid,
+          default_stake_cred,
+        ),
       }
+    }
     _ -> fail @"must only one bond utxo input"
   }
 }
