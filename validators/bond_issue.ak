@@ -50,7 +50,7 @@ validator(
       BondRedeem { pid: nft_pid } ->
         redeem_bond.spending_with_fee(cfg, tx, sbond, addr, sdt, nft_pid)
       BondPayInterest { pid: nft_pid } ->
-        pay_interest.spending_without_fee(tx, sbond, addr, sdt, nft_pid)
+        pay_interest.spending_without_fee(cfg, tx, sbond, addr, sdt, nft_pid)
       BondChangeStakeKey { pid: nft_pid } ->
         change_stake_key.spending(
           cfg,

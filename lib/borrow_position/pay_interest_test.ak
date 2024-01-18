@@ -9,8 +9,12 @@ use aiken/transaction.{
 }
 use aiken/transaction/credential.{Address, Inline, VerificationKeyCredential}
 use aiken/transaction/value.{PolicyId}
-use bond_issue/types.{BondDatum, PlatformConfig} as bond_issue_types
+use bond_issue/types.{BondDatum,
+  BondIssueConfig, PlatformConfig} as bond_issue_types
 use borrow_position/pay_interest
+use common/time.{
+  BasisPoints, get_epoch_config_mainnet, get_slot_config_network_mainnet,
+}
 use issue_bond/types.{BondPayInterest}
 
 const nft_pid = "nft_pid"
@@ -42,16 +46,21 @@ fn build_bond_output(datum: BondDatum, stake: ByteArray) {
 }
 
 fn build_cfg() {
-  PlatformConfig {
-    bond_face_value: 100_000_000,
-    fee: 500,
-    fee_addr: credential.from_verification_key("fee_addr"),
-    tx_ttl: 3 * 60,
-    min_buffer: 6,
-    prepaid_plus: 3,
-    min_requested: 100,
-    min_apr: 200,
-    min_duration: 6,
+  BondIssueConfig {
+    slot: get_slot_config_network_mainnet(),
+    epoch: get_epoch_config_mainnet(),
+    basis: BasisPoints { base: 10_000, min: 1, max: 9_999 },
+    platform: PlatformConfig {
+      bond_face_value: 100_000_000,
+      fee: 500,
+      fee_addr: credential.from_verification_key("fee_addr"),
+      tx_ttl: 3 * 60,
+      min_buffer: 6,
+      prepaid_plus: 3,
+      min_requested: 100,
+      min_apr: 200,
+      min_duration: 6,
+    },
   }
 }
 
@@ -139,8 +148,8 @@ fn validate(output_modifier: fn(Output) -> Output) {
       fee: 500,
       borrower: "borrower_1",
       start: 450,
-      buffer: cfg.min_buffer,
-      duration: cfg.min_duration,
+      buffer: cfg.platform.min_buffer,
+      duration: cfg.platform.min_duration,
     }
   let sbond =
     Input {
@@ -170,6 +179,7 @@ fn validate(output_modifier: fn(Output) -> Output) {
       ],
     )
   pay_interest.spending_without_fee(
+    cfg,
     tx: tx,
     sbond: bond,
     sbond_addr: bond.address,
