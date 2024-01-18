@@ -1,6 +1,5 @@
 use aiken/list
 use aiken/transaction.{InlineDatum, Output, Transaction}
-use aiken/transaction/credential.{Address}
 use aiken/transaction/value.{PolicyId}
 use bond_issue/types.{BondDatum, BondIssueConfig}
 use common/time.{get_current_epoch_with_ttl}
@@ -9,7 +8,6 @@ pub fn spending(
   cfg: BondIssueConfig,
   tx: Transaction,
   sbond: Output,
-  sbond_addr: Address,
   sbond_dt: BondDatum,
   nft_pid: PolicyId,
   borrower_pid: PolicyId,
@@ -22,7 +20,7 @@ pub fn spending(
       },
     )
   is {
-    Some(_) -> constraint(cfg, tx, sbond, sbond_addr, sbond_dt, nft_pid)
+    Some(_) -> constraint(cfg, tx, sbond, sbond_dt, nft_pid)
     _ ->
       fail @"borrow_position/change_stake_key.spending: not found borrower nft of bond utxo"
   }
@@ -32,7 +30,6 @@ pub fn constraint(
   cfg: BondIssueConfig,
   tx: Transaction,
   sbond: Output,
-  sbond_addr: Address,
   sbond_dt: BondDatum,
   nft_pid: PolicyId,
 ) -> Bool {
@@ -40,7 +37,7 @@ pub fn constraint(
     list.filter(
       tx.outputs,
       fn(o) {
-        o.address.payment_credential == sbond_addr.payment_credential && //
+        o.address.payment_credential == sbond.address.payment_credential && //
         value.quantity_of(o.value, nft_pid, sbond_dt.token_name) == 1
       },
     )

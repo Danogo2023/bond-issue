@@ -1,6 +1,5 @@
 use aiken/list
 use aiken/transaction.{InlineDatum, Output, Transaction}
-use aiken/transaction/credential.{Address}
 use aiken/transaction/value.{PolicyId}
 use bond_issue/types.{BondDatum, BondIssueConfig} as bond_issue_types
 
@@ -8,7 +7,6 @@ pub fn spending_without_fee(
   cfg: BondIssueConfig,
   tx: Transaction,
   sbond: Output,
-  sbond_addr: Address,
   sbond_dt: BondDatum,
   nft_pid: PolicyId,
 ) -> Bool {
@@ -16,7 +14,7 @@ pub fn spending_without_fee(
     list.filter(
       tx.outputs,
       fn(o) {
-        o.address == sbond_addr && //
+        o.address == sbond.address && //
         value.quantity_of(o.value, nft_pid, sbond_dt.token_name) == 1
       },
     )
