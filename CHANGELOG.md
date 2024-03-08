@@ -7,9 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.0.3] - 2024-01-30
+## [1.0.4] - 2024-03-07
 
-### 1.0.3
+### Added
+
+- Restrict that all tokens names under the borrower_nft or borrow_request_nft policy must be hashed by a spending out ref
+- Implement new redeemer borrower_nft::RequestUpdate to allow burning borrower nft
+
+## [1.0.3] - 2024-01-30
 
 This is the first documented and supported implementation. It contains some main points:
 
@@ -34,4 +39,5 @@ This is the first documented and supported implementation. It contains some main
 All future Changelog entries will reference this base
 
 [unreleased]: https://github.com/danogo2023/bond-issue/compare/v1.0.3...HEAD
-<!-- [1.0.0]: https://github.com/danogo2023/bond-issue/compare/v1.0.0-rc.0...v1.0.0 -->
+[1.0.4]: https://github.com/danogo2023/bond-issue/compare/v1.0.3...v1.0.4
+[1.0.3]: https://github.com/danogo2023/bond-issue/compare/v0.0.1...v1.0.3

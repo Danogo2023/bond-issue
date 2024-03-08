@@ -280,15 +280,145 @@ test succ_when_all_rules_are_satisfied() {
       borrower_pid,
       borrower_in.output_reference,
     ),
-    borrower_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      req_pid,
-      borrower_pid,
-      borrower_in.output_reference,
-    ),
+    borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
   }
+}
+
+// Try to mint 2 borrow requests in a transaction, but one of 
+// them has invalid name that is not hashed by a spending out ref.
+// The `req_pid` is an always-true script that is setup to remove 
+// the rest contrainsts 
+test fail_when_minting_invalid_token_names() fail {
+  let cfg = build_cfg()
+  let borrower_in = build_borrower_input()
+  let borrower = hash_out_ref(borrower_in.output_reference)
+  let borrower_1 = "computed_nft_name"
+  let borrow_request_out = build_borrow_request_output(borrower)
+  let borrow_request_1_out = build_borrow_request_output(borrower_1)
+  let tx =
+    Transaction {
+      ..placeholder(),
+      mint: value.from_asset(req_pid, borrower, 1)
+        |> value.add(borrower_pid, borrower, 1)
+        |> value.add(borrower_pid, borrower_1, 1)
+        |> value.add(req_pid, borrower_1, 1)
+        |> value.to_minted_value,
+      inputs: [borrower_in],
+      outputs: [
+        borrow_request_out,
+        borrow_request_1_out,
+        borrower_in.output
+          |> add_asset(borrower_pid, borrower_1, 1)
+          |> add_asset(borrower_pid, borrower, 1),
+      ],
+    }
+
+  !borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid)
+}
+
+// Try to mint 3 borrow requests in a transaction, but one of 
+// them has invalid name that is not hashed by a spending out ref.
+// The `req_pid` is an always-true script that is setup to remove 
+// the rest contrainsts
+test fail_when_minting_invalid_token_names_2() fail {
+  let cfg = build_cfg()
+  let borrower_in = build_borrower_input()
+  let borrower_0_in =
+    Input {
+      output_reference: OutputReference(TransactionId("tx_00"), 0),
+      output: build_borrower_output(),
+    }
+  let borrower = hash_out_ref(borrower_in.output_reference)
+  let borrower_0 = hash_out_ref(borrower_0_in.output_reference)
+  let borrower_1 = "computed_nft_name"
+  let borrow_request_out = build_borrow_request_output(borrower)
+  let borrow_request_0_out = build_borrow_request_output(borrower_0)
+  let borrow_request_1_out = build_borrow_request_output(borrower_1)
+  let tx =
+    Transaction {
+      ..placeholder(),
+      mint: value.from_asset(req_pid, borrower, 1)
+        |> value.add(borrower_pid, borrower, 1)
+        |> value.add(borrower_pid, borrower_0, 1)
+        |> value.add(borrower_pid, borrower_1, 1)
+        |> value.add(req_pid, borrower_1, 1)
+        |> value.to_minted_value,
+      inputs: [borrower_in],
+      outputs: [
+        borrow_request_out,
+        borrow_request_0_out,
+        borrow_request_1_out,
+        borrower_in.output
+          |> add_asset(borrower_pid, borrower_0, 1)
+          |> add_asset(borrower_pid, borrower_1, 1)
+          |> add_asset(borrower_pid, borrower, 1),
+      ],
+    }
+
+  !borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid)
+}
+
+test fail_when_minting_invalid_request_nft_addtionally() fail {
+  let cfg = build_cfg()
+  let borrower_in = build_borrower_input()
+  let borrower = hash_out_ref(borrower_in.output_reference)
+  let borrower_1 = "computed_nft_name"
+  let borrow_request_out = build_borrow_request_output(borrower)
+  let borrow_request_1_out = build_borrow_request_output(borrower_1)
+  let tx =
+    Transaction {
+      ..placeholder(),
+      mint: value.from_asset(req_pid, borrower, 1)
+        |> value.add(borrower_pid, borrower, 1)
+        |> value.add(req_pid, borrower_1, 1)
+        |> value.to_minted_value,
+      inputs: [borrower_in],
+      outputs: [
+        borrow_request_out,
+        borrow_request_1_out,
+        borrower_in.output
+          |> add_asset(borrower_pid, borrower_1, 1)
+          |> add_asset(borrower_pid, borrower, 1),
+      ],
+    }
+
+  request_nft.minting(
+    cfg,
+    tx,
+    req_skh,
+    req_pid,
+    borrower_pid,
+    borrower_in.output_reference,
+  )
+}
+
+test fail_when_minting_invalid_request_nft() fail {
+  let cfg = build_cfg()
+  let borrower_in = build_borrower_input()
+  let borrower_1 = "computed_nft_name"
+  let borrow_request_out = build_borrow_request_output(borrower_1)
+  let tx =
+    Transaction {
+      ..placeholder(),
+      mint: value.from_asset(req_pid, borrower_1, 1)
+        |> value.add(borrower_pid, borrower_1, 1)
+        |> value.to_minted_value,
+      inputs: [borrower_in],
+      outputs: [
+        borrow_request_out,
+        borrower_in.output
+          |> add_asset(borrower_pid, borrower_1, 1),
+      ],
+    }
+
+  request_nft.minting(
+    cfg,
+    tx,
+    req_skh,
+    req_pid,
+    borrower_pid,
+    borrower_in.output_reference,
+  )
 }
 
 test succ_when_creating_5_requests() {
@@ -350,14 +480,7 @@ test succ_when_creating_5_requests() {
           borrower_pid,
           borrower_in.output_reference,
         ),
-        borrower_nft.minting(
-          cfg,
-          tx,
-          req_skh,
-          req_pid,
-          borrower_pid,
-          borrower_in.output_reference,
-        ),
+        borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
       } })
 }
 
@@ -420,14 +543,7 @@ test succ_when_creating_10_requests() {
           borrower_pid,
           borrower_in.output_reference,
         ),
-        borrower_nft.minting(
-          cfg,
-          tx,
-          req_skh,
-          req_pid,
-          borrower_pid,
-          borrower_in.output_reference,
-        ),
+        borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
       } })
 }
 
@@ -471,14 +587,7 @@ test succ_on_large_inputs_and_outputs() {
       borrower_pid,
       borrower_in.output_reference,
     ),
-    borrower_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      req_pid,
-      borrower_pid,
-      borrower_in.output_reference,
-    ),
+    borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
   }
 }
 
@@ -505,14 +614,7 @@ test fail_when_borrow_request_doesnt_hold_nft() {
       borrower_pid,
       borrower_in.output_reference,
     ),
-    borrower_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      req_pid,
-      borrower_pid,
-      borrower_in.output_reference,
-    ),
+    borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
   } |> not
 }
 
@@ -543,14 +645,7 @@ test fail_when_minting_unexpected_borrower_nft() {
       borrower_pid,
       borrower_in.output_reference,
     ),
-    borrower_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      req_pid,
-      borrower_pid,
-      borrower_in.output_reference,
-    ),
+    borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
   } |> not
 }
 
@@ -581,14 +676,7 @@ test fail_when_minting_unexpected_request_nft() {
       borrower_pid,
       borrower_in.output_reference,
     ),
-    borrower_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      req_pid,
-      borrower_pid,
-      borrower_in.output_reference,
-    ),
+    borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
   } |> not
 }
 
@@ -619,14 +707,7 @@ test fail_when_minting_more_than_1_request_nft() fail {
       borrower_pid,
       borrower_in.output_reference,
     ),
-    borrower_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      req_pid,
-      borrower_pid,
-      borrower_in.output_reference,
-    ),
+    borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
   } |> not
 }
 
@@ -657,14 +738,7 @@ test fail_when_minting_more_than_1_borrower_nft() {
       borrower_pid,
       borrower_in.output_reference,
     ),
-    borrower_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      req_pid,
-      borrower_pid,
-      borrower_in.output_reference,
-    ),
+    borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
   } |> not
 }
 
@@ -700,14 +774,7 @@ test fail_when_borrow_request_holds_incorrect_nft() fail {
       borrower_pid,
       borrower_in.output_reference,
     ),
-    borrower_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      req_pid,
-      borrower_pid,
-      borrower_in.output_reference,
-    ),
+    borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
   } |> not
 }
 
@@ -730,14 +797,7 @@ test fail_when_doesnt_set_stake_credential() fail {
       borrower_pid,
       borrower_in.output_reference,
     ),
-    borrower_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      req_pid,
-      borrower_pid,
-      borrower_in.output_reference,
-    ),
+    borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
   } |> not
 }
 
@@ -760,14 +820,7 @@ test fail_when_setting_apr_lower_than_min_apr() fail {
       borrower_pid,
       borrower_in.output_reference,
     ),
-    borrower_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      req_pid,
-      borrower_pid,
-      borrower_in.output_reference,
-    ),
+    borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
   } |> not
 }
 
@@ -793,14 +846,7 @@ test fail_when_setting_duration_lower_than_min_duration() fail {
       borrower_pid,
       borrower_in.output_reference,
     ),
-    borrower_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      req_pid,
-      borrower_pid,
-      borrower_in.output_reference,
-    ),
+    borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
   } |> not
 }
 
@@ -823,14 +869,7 @@ test fail_when_setting_incorrect_symbol() fail {
       borrower_pid,
       borrower_in.output_reference,
     ),
-    borrower_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      req_pid,
-      borrower_pid,
-      borrower_in.output_reference,
-    ),
+    borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
   } |> not
 }
 
@@ -853,14 +892,7 @@ test fail_when_setting_incorrect_borrower() fail {
       borrower_pid,
       borrower_in.output_reference,
     ),
-    borrower_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      req_pid,
-      borrower_pid,
-      borrower_in.output_reference,
-    ),
+    borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
   } |> not
 }
 
@@ -886,14 +918,7 @@ test fail_when_setting_requested_lower_than_min_requested() fail {
       borrower_pid,
       borrower_in.output_reference,
     ),
-    borrower_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      req_pid,
-      borrower_pid,
-      borrower_in.output_reference,
-    ),
+    borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
   } |> not
 }
 
@@ -913,14 +938,7 @@ test fail_when_setting_negative_issued() fail {
       borrower_pid,
       borrower_in.output_reference,
     ),
-    borrower_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      req_pid,
-      borrower_pid,
-      borrower_in.output_reference,
-    ),
+    borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
   } |> not
 }
 
@@ -940,14 +958,7 @@ test fail_when_setting_positive_issued() fail {
       borrower_pid,
       borrower_in.output_reference,
     ),
-    borrower_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      req_pid,
-      borrower_pid,
-      borrower_in.output_reference,
-    ),
+    borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
   } |> not
 }
 
@@ -974,14 +985,7 @@ test fail_when_setting_epo_rewards_lower_than_expected() fail {
       borrower_pid,
       borrower_in.output_reference,
     ),
-    borrower_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      req_pid,
-      borrower_pid,
-      borrower_in.output_reference,
-    ),
+    borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
   } |> not
 }
 
@@ -1007,14 +1011,7 @@ test fail_when_setting_buffer_lower_than_min_buffer() fail {
       borrower_pid,
       borrower_in.output_reference,
     ),
-    borrower_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      req_pid,
-      borrower_pid,
-      borrower_in.output_reference,
-    ),
+    borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
   } |> not
 }
 
@@ -1037,14 +1034,7 @@ test fail_when_setting_fee_lower_than_min_fee() fail {
       borrower_pid,
       borrower_in.output_reference,
     ),
-    borrower_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      req_pid,
-      borrower_pid,
-      borrower_in.output_reference,
-    ),
+    borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
   } |> not
 }
 
@@ -1071,14 +1061,7 @@ test fail_when_setting_prepaid_lower_min_prepaid() fail {
       borrower_pid,
       borrower_in.output_reference,
     ),
-    borrower_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      req_pid,
-      borrower_pid,
-      borrower_in.output_reference,
-    ),
+    borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
   } |> not
 }
 
@@ -1104,14 +1087,7 @@ test fail_when_setting_deposit_ada_lower_than_expected() fail {
       borrower_pid,
       borrower_in.output_reference,
     ),
-    borrower_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      req_pid,
-      borrower_pid,
-      borrower_in.output_reference,
-    ),
+    borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
   } |> not
 }
 
@@ -1134,14 +1110,7 @@ test fail_when_borrow_request_has_no_datum() fail {
       borrower_pid,
       borrower_in.output_reference,
     ),
-    borrower_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      req_pid,
-      borrower_pid,
-      borrower_in.output_reference,
-    ),
+    borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
   } |> not
 }
 
@@ -1171,14 +1140,7 @@ test fail_when_borrow_request_has_invalid_datum() fail {
       borrower_pid,
       borrower_in.output_reference,
     ),
-    borrower_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      req_pid,
-      borrower_pid,
-      borrower_in.output_reference,
-    ),
+    borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
   } |> not
 }
 
@@ -1228,14 +1190,7 @@ test fail_when_attempting_double_satisfaction() {
       borrower_pid,
       borrower1_in.output_reference,
     ),
-    borrower_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      req_pid,
-      borrower_pid,
-      borrower1_in.output_reference,
-    ),
+    borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
     request_nft.minting(
       cfg,
       tx,
@@ -1244,13 +1199,6 @@ test fail_when_attempting_double_satisfaction() {
       borrower_pid,
       borrower2_in.output_reference,
     ),
-    borrower_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      req_pid,
-      borrower_pid,
-      borrower2_in.output_reference,
-    ),
+    borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid),
   } |> not
 }

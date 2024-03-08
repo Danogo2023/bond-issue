@@ -25,9 +25,12 @@ validator(cfg: BondIssueConfig) {
     expect Mint(borrower_pid) = ctx.purpose
     let tx = ctx.transaction
     when ac is {
-      RequestCreate { out_ref, req_skh, pid: req_pid } ->
-        borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid, out_ref)
-      _ -> fail @"minting borrower nft only support RequestCreate action"
+      RequestCreate { out_ref: _, req_skh, pid: req_pid } ->
+        borrower_nft.minting(cfg, tx, req_skh, req_pid, borrower_pid)
+      RequestUpdate { pid: _ } ->
+        borrower_nft.burning_force_redeem(tx, borrower_pid)
+      _ ->
+        fail @"minting borrower nft only support RequestCreate | RequestUpdate action"
     }
   }
 }
