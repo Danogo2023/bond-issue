@@ -39,5 +39,5 @@ This is the first documented and supported implementation. It contains some main
 All future Changelog entries will reference this base
 
 [unreleased]: ../../compare/v1.0.3...HEAD
-[1.0.4]: ../../compare/v1.0.3...v1.0.4
+<!-- [1.0.4]: ../../compare/v1.0.3...v1.0.4 -->
 [1.0.3]: ../../compare/v0.0.1...v1.0.3
