@@ -4,7 +4,6 @@ use aiken/transaction.{InlineDatum, OutputReference, Transaction}
 use aiken/transaction/credential.{ScriptCredential}
 use aiken/transaction/value.{PolicyId}
 use bond_issue/types.{BondIssueConfig, RequestDatum} as bond_issue_types
-use borrow_request/utils.{get_input_out_ref} as borrow_request_utils
 use common/hash_out_refs.{hash_out_ref}
 use common/types.{ScriptKeyHash} as common_types
 use issue_bond/utils.{
@@ -42,11 +41,15 @@ pub fn minting(
   req_skh: ScriptKeyHash,
   req_pid: PolicyId,
   borrower_pid: PolicyId,
-  out_ref: OutputReference,
+  _out_ref: OutputReference,
 ) -> Bool {
-  let borrower_valid = hash_out_ref(get_input_out_ref(tx.inputs, out_ref))
+  let valid_request_token_names =
+    list.map(tx.inputs, fn(inp) { hash_out_ref(inp.output_reference) })
   let mint_req_nfts = value.tokens(value.from_minted_value(tx.mint), req_pid)
-  let mint_req_nfts_valid = dict.filter(mint_req_nfts, fn(_n, q) { (q == 1)? })
+  let mint_req_nfts_valid = dict.filter(mint_req_nfts, fn(n, q) { and {
+          list.has(valid_request_token_names, n)?,
+          (q == 1)?,
+        } })
   let req_pk = ScriptCredential(req_skh)
   let dist_req_nfts =
     list.filter(
@@ -81,7 +84,6 @@ pub fn minting(
       },
     )
   and {
-    dict.has_key(mint_req_nfts_valid, borrower_valid)?,
     (dict.size(mint_req_nfts) == dict.size(mint_req_nfts_valid))?,
     (dict.size(mint_req_nfts) == list.length(dist_req_nfts))?,
   }
