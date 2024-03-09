@@ -21,7 +21,7 @@ use issue_bond/types.{
 
 // num deploy 1
 validator(cfg: BondIssueConfig) {
-  fn mint_borrower(ac: BondIssueAction, ctx: ScriptContext) -> Bool {
+  fn mint_borrower_nft(ac: BondIssueAction, ctx: ScriptContext) -> Bool {
     expect Mint(borrower_pid) = ctx.purpose
     let tx = ctx.transaction
     when ac is {
@@ -68,7 +68,7 @@ validator(
 
 // num deploy 3
 validator(cfg: BondIssueConfig, bond_skh: ScriptKeyHash) {
-  fn mint_nft(ac: BondIssueAction, ctx: ScriptContext) -> Bool {
+  fn mint_bond_nft(ac: BondIssueAction, ctx: ScriptContext) -> Bool {
     expect Mint(nft_pid) = ctx.purpose
     let tx = ctx.transaction
     when ac is {
@@ -83,7 +83,7 @@ validator(cfg: BondIssueConfig, bond_skh: ScriptKeyHash) {
 
 // num deploy 4
 validator(cfg: BondIssueConfig, bond_skh: ScriptKeyHash, nft_pid: PolicyId) {
-  fn mint_token(ac: BondIssueAction, ctx: ScriptContext) -> Bool {
+  fn mint_bond_token(ac: BondIssueAction, ctx: ScriptContext) -> Bool {
     expect Mint(bond_pid) = ctx.purpose
     let tx = ctx.transaction
     when ac is {
@@ -147,7 +147,7 @@ validator(
   bond_skh: ScriptKeyHash,
   borrower_pid: PolicyId,
 ) {
-  fn mint_request(ac: BondIssueAction, ctx: ScriptContext) -> Bool {
+  fn mint_request_nft(ac: BondIssueAction, ctx: ScriptContext) -> Bool {
     expect Mint(req_pid) = ctx.purpose
     let tx = ctx.transaction
     when ac is {

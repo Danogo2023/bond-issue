@@ -1,6 +1,6 @@
-use aiken/bytearray
 use aiken/dict
 use aiken/list
+use aiken/option
 use aiken/transaction.{InlineDatum, OutputReference, Transaction}
 use aiken/transaction/credential.{Address, ScriptCredential}
 use aiken/transaction/value.{PolicyId}
@@ -45,15 +45,25 @@ pub fn minting(
   req_pid: PolicyId,
   _out_ref: OutputReference,
 ) -> Bool {
-  let mint_bond_nfts = value.tokens(value.from_minted_value(tx.mint), nft_pid)
-  let mint_bond_nfts_valid =
-    dict.filter(mint_bond_nfts, fn(_n, q) { (q == 1)? })
-  if (dict.size(mint_bond_nfts) == dict.size(mint_bond_nfts_valid))? {
+  let bond_nft_mint = value.tokens(value.from_minted_value(tx.mint), nft_pid)
+  let (bond_name_mint_valid, bond_name_mint_valid_count) =
+    dict.foldr(
+      bond_nft_mint,
+      ([], 0),
+      fn(n, q, z) {
+        if (q == 1)? {
+          ([n, ..z.1st], z.2nd + 1)
+        } else {
+          z
+        }
+      },
+    )
+  if (dict.size(bond_nft_mint) == bond_name_mint_valid_count)? {
     let req_pk = ScriptCredential(req_skh)
-    let req_inputs_valid =
+    let (bond_name_inputs_valid, bond_name_inputs_valid_count) =
       list.foldr(
         tx.inputs,
-        dict.new(),
+        ([], 0),
         fn(i, z) {
           let req_tokens = value.tokens(i.output.value, req_pid)
           if and {
@@ -71,12 +81,12 @@ pub fn minting(
               check_output_request_base(cfg, i.output, sreq_dt)?,
               (sreq_dt.requested > sreq_dt.issued)?,
               (sreq_dt.issued >= 0)?,
-              (value.quantity_of(i.output.value, req_pid, sreq_dt.borrower) == 1)?,
+              (( dict.get(req_tokens, sreq_dt.borrower) |> option.or_else(0) ) == 1)?,
             } {
               let bond_name =
                 hash_out_ref_salt(i.output_reference, sreq_dt.borrower)
-              if !dict.has_key(z, bond_name) {
-                dict.insert(z, bond_name, i.output, compare: bytearray.compare)
+              if !list.has(z.1st, bond_name) {
+                ([bond_name, ..z.1st], z.2nd + 1)
               } else {
                 fail @"borrow request input is unique"
               }
@@ -88,67 +98,63 @@ pub fn minting(
           }
         },
       )
-    // let bond_name_inputs_valid = dict.keys(req_inputs_valid)
-    let epoch_curr =
-      get_current_epoch_with_ttl(
-        tx.validity_range,
-        cfg.epoch,
-        cfg.platform.tx_ttl,
-        cfg.slot.slot_length,
-      )
-    let bond_pk = ScriptCredential(bond_skh)
-    let bond_outputs_valid =
-      list.foldr(
-        tx.outputs,
-        dict.new(),
-        fn(o, z) {
-          let nft_tokens = value.tokens(o.value, nft_pid)
-          if and {
-            o.address.payment_credential == bond_pk,
-            dict.size(nft_tokens) == 1,
-          } {
-            expect obond_dt: BondDatum =
-              when o.datum is {
-                InlineDatum(d) -> d
-                _ ->
-                  fail @"borrow_position/bond_nft.minting: only supports InlineDatum for bond"
-              }
-            if and {
-              (value.quantity_of(o.value, nft_pid, obond_dt.token_name) == 1)?,
-              //
-              dict.has_key(mint_bond_nfts_valid, obond_dt.token_name)?,
-              //
-              (obond_dt.duration >= cfg.platform.min_duration)?,
-              (obond_dt.buffer >= cfg.platform.min_buffer)?,
-              (obond_dt.fee >= cfg.platform.fee)?,
-              (obond_dt.bond_amount > 0)?,
-              (obond_dt.start == epoch_curr - cfg.epoch.epoch_boundary_as_epoch)?,
-            } {
-              if !dict.has_key(z, obond_dt.token_name) {
-                dict.insert(
-                  z,
-                  obond_dt.token_name,
-                  o,
-                  compare: bytearray.compare,
-                )
-              } else {
-                fail @"bond utxo output is unique"
-              }
-            } else {
-              fail
-            }
-          } else {
-            z
-          }
-        },
-      )
     and {
-      (dict.size(bond_outputs_valid) == dict.size(req_inputs_valid))?,
-      (dict.size(bond_outputs_valid) == dict.size(mint_bond_nfts_valid))?,
-      (list.difference(
-        dict.keys(mint_bond_nfts_valid),
-        dict.keys(bond_outputs_valid),
-      ) == [])?,
+      (bond_name_inputs_valid_count == bond_name_mint_valid_count)?,
+      (list.difference(bond_name_inputs_valid, bond_name_mint_valid) == [])?,
+      {
+        let epoch_curr =
+          get_current_epoch_with_ttl(
+            tx.validity_range,
+            cfg.epoch,
+            cfg.platform.tx_ttl,
+            cfg.slot.slot_length,
+          )
+        let bond_pk = ScriptCredential(bond_skh)
+        let (_, bond_name_outputs_valid_count) =
+          list.foldr(
+            tx.outputs,
+            ([], 0),
+            fn(o, z) {
+              let nft_tokens = value.tokens(o.value, nft_pid)
+              if and {
+                o.address.payment_credential == bond_pk,
+                dict.size(nft_tokens) == 1,
+              } {
+                expect obond_dt: BondDatum =
+                  when o.datum is {
+                    InlineDatum(d) -> d
+                    _ ->
+                      fail @"borrow_position/bond_nft.minting: only supports InlineDatum for bond"
+                  }
+                if and {
+                  ((
+                    dict.get(nft_tokens, obond_dt.token_name)
+                      |> option.or_else(0)
+                  ) == 1)?,
+                  //
+                  list.has(bond_name_inputs_valid, obond_dt.token_name)?,
+                  //
+                  (obond_dt.duration >= cfg.platform.min_duration)?,
+                  (obond_dt.buffer >= cfg.platform.min_buffer)?,
+                  (obond_dt.fee >= cfg.platform.fee)?,
+                  (obond_dt.bond_amount > 0)?,
+                  (obond_dt.start == epoch_curr - cfg.epoch.epoch_boundary_as_epoch)?,
+                } {
+                  if !list.has(z.1st, obond_dt.token_name) {
+                    ([obond_dt.token_name, ..z.1st], z.2nd + 1)
+                  } else {
+                    fail @"bond utxo output is unique"
+                  }
+                } else {
+                  fail
+                }
+              } else {
+                z
+              }
+            },
+          )
+        (bond_name_outputs_valid_count == bond_name_inputs_valid_count)?
+      },
     }
   } else {
     fail
