@@ -542,6 +542,34 @@ fn validate(args: (Input, ScriptContext)) {
   }
 }
 
+fn validate_bond_nft_minting(args: (Input, ScriptContext)) {
+  let cfg = build_cfg()
+  let (spending_request, ctx) = args
+  let tx = ctx.transaction
+  trace @"==================="
+  trace string.concat(
+    @"count inputs: ",
+    string.from_int(list.length(tx.inputs)),
+  )
+  trace string.concat(
+    @"count reference_inputs: ",
+    string.from_int(list.length(tx.reference_inputs)),
+  )
+  trace string.concat(
+    @"count outputs: ",
+    string.from_int(list.length(tx.outputs)),
+  )
+  bond_nft.minting(
+    cfg,
+    tx,
+    req_skh,
+    bond_skh,
+    nft_pid,
+    req_pid,
+    spending_request.output_reference,
+  )
+}
+
 test succ_when_fulfilling_single_borrow_request_entirely() {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> validate
@@ -1001,6 +1029,69 @@ test fail_when_minting_not_enough_bond_tokens() fail {
          )
        }
     |> validate
+    |> not
+}
+
+test fail_when_minting_not_enough_bond_tokens_name() {
+  build_tx(request: FulfilledZero, lend_amount: Entire)
+    |> fn(args: (Input, ScriptContext)) {
+         let (sreq, ctx) = args
+         let tx = ctx.transaction
+         expect [out1, bond_out, ..rest] = tx.outputs
+         let bond_out_2 =
+           Output {
+             value: value.from_lovelace(123_212)
+               |> value.add(
+                    nft_pid,
+                    bytearray.concat(get_bond_datum(bond_out).token_name, "_1"),
+                    1,
+                  ),
+             address: bond_out.address,
+             datum: InlineDatum(
+               BondDatum {
+                 ..get_bond_datum(bond_out),
+                 token_name: bytearray.concat(
+                   get_bond_datum(bond_out).token_name,
+                   "_1",
+                 ),
+               },
+             ),
+             reference_script: None,
+           }
+         expect [lender_in, request_in] = tx.inputs
+         let target_name =
+           bytearray.concat(get_bond_datum(bond_out).token_name, "_1")
+         expect InlineDatum(inl_dtm) = request_in.output.datum
+         expect dtm: RequestDatum = inl_dtm
+         let request_in_2 =
+           Input {
+             output_reference: OutputReference(TransactionId("tx_222"), 1),
+             output: Output {
+               ..request_in.output,
+               value: value.from_lovelace(
+                 value.lovelace_of(request_in.output.value),
+               )
+                 |> value.add(req_pid, target_name, 1),
+               datum: InlineDatum(RequestDatum { ..dtm, borrower: target_name }),
+             },
+           }
+         (
+           sreq,
+           ScriptContext {
+             ..ctx,
+             transaction: Transaction {
+               ..tx,
+               mint: tx.mint
+                 |> value.from_minted_value
+                 |> value.add(nft_pid, target_name, 1)
+                 |> value.to_minted_value,
+               inputs: [lender_in, request_in, request_in_2],
+               outputs: [out1, bond_out, bond_out_2, ..rest],
+             },
+           },
+         )
+       }
+    |> validate_bond_nft_minting
     |> not
 }
 
