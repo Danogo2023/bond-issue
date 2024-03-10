@@ -10,7 +10,7 @@ pub fn spending_with_fee(
   tx: Transaction,
   sbond: Output,
   sbond_dt: BondDatum,
-  nft_pid: PolicyId,
+  bond_nft_pid: PolicyId,
 ) -> Bool {
   when
     list.filter(
@@ -33,7 +33,7 @@ pub fn spending_with_fee(
           value.without_lovelace(sbond.value),
           sbond.address,
           sbond_dt,
-          nft_pid,
+          bond_nft_pid,
           sbond_interest_paid,
         ),
       }
@@ -49,7 +49,7 @@ pub fn redeem_with_fee_valid(
   sbond_assets: Value,
   sbond_addr: Address,
   sbond_dt: BondDatum,
-  nft_pid: PolicyId,
+  bond_nft_pid: PolicyId,
   sbond_interest_paid: Int,
 ) -> Bool {
   let mint_value = value.from_minted_value(tx.mint)
@@ -61,7 +61,7 @@ pub fn redeem_with_fee_valid(
         fn(o, z) {
           if and {
             o.address == sbond_addr,
-            value.quantity_of(o.value, nft_pid, sbond_dt.token_name) == 1,
+            value.quantity_of(o.value, bond_nft_pid, sbond_dt.token_name) == 1,
           } {
             if (z.1st == None)? {
               (Some(o), z.2nd)
@@ -112,7 +112,7 @@ pub fn redeem_with_fee_valid(
       (None, ofee) ->
         if and {
           (ofee >= sbond_interest_paid * sbond_dt.fee / cfg.basis.base)?,
-          (value.quantity_of(mint_value, nft_pid, sbond_dt.token_name) == -1)?,
+          (value.quantity_of(mint_value, bond_nft_pid, sbond_dt.token_name) == -1)?,
         } {
           sbond_dt.bond_amount
         } else {

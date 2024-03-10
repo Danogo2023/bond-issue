@@ -53,12 +53,13 @@ test succ_bond_create() {
       },
     }
   let owner_addr = credential.from_verification_key("owner")
-  let req_skh = #"4c0df7526072e3200e2796d3b900078625685cb1ebf3fcf4c29eba32"
+  let req_nft_pid = #"74b89307994e186eac325f7245fe1a9d9efa6bab0b786afed50eeec1"
+  let req_skh = #"74b89307994e186eac325f7245fe1a9d9efa6bab0b786afed50eeec1"
+  // let req_skh = #"4c0df7526072e3200e2796d3b900078625685cb1ebf3fcf4c29eba32"
   let req_stake = #"2b9f6ee3e1dd784ebba52ba98634ea52f1d78a3601ef20f0bf6b7e80"
   let req_addr =
     credential.from_script(req_skh)
       |> credential.with_delegation_key(req_stake)
-  let req_pid = #"74b89307994e186eac325f7245fe1a9d9efa6bab0b786afed50eeec1"
   let borrower_pid = #"894677d0c96689ed3101394aa1dc35c1a6de99082e5b5cb229b69bd4"
   let borrower_nft =
     #"f4eb6725314d9c04be6c02d1e80d30f27dd2d438b5d935bd1402df603e55cb0e"
@@ -75,16 +76,12 @@ test succ_bond_create() {
       buffer: 6,
       fee: 500,
     }
-  let bond_skh = #"0c870a14186f553f2cc76884cf395286a39ed93550707181a365dcf8"
-  let bond_addr =
-    credential.from_script(bond_skh)
-      |> credential.with_delegation_key(req_stake)
   let input_01 =
     build_input(
       #"2c7c0ba54d6bfa9ea2ed24789d960e92d75602f5956b7b404fa9c2377808d208",
       0,
       req_addr,
-      value.from_lovelace(323506845) |> value.add(req_pid, borrower_nft, 1),
+      value.from_lovelace(323506845) |> value.add(req_nft_pid, borrower_nft, 1),
       InlineDatum(sreq_dt),
     )
 
@@ -133,8 +130,14 @@ test succ_bond_create() {
   //       reference_script: None,
   //     },
   //   }
-  let nft_pid = #"b08ea97cd6804da26cf4cd4a346340222244f6e9c63fc2af7e24bd45"
-  let bond_pid = #"d4cb2133c49544f3f4aed61adf33d0aa70451bc0640e95381ef3356d"
+  let bond_nft_pid = #"b08ea97cd6804da26cf4cd4a346340222244f6e9c63fc2af7e24bd45"
+  let bond_skh = #"b08ea97cd6804da26cf4cd4a346340222244f6e9c63fc2af7e24bd45"
+  // let bond_skh = #"0c870a14186f553f2cc76884cf395286a39ed93550707181a365dcf8"
+  let bond_addr =
+    credential.from_script(bond_skh)
+      |> credential.with_delegation_key(req_stake)
+  let bond_token_pid =
+    #"d4cb2133c49544f3f4aed61adf33d0aa70451bc0640e95381ef3356d"
   let bond_name =
     #"56a951688173fc7332fd488f0254e4a2e2a23374f2ee1004af51cc0da34306a6"
   let output_01 =
@@ -149,12 +152,12 @@ test succ_bond_create() {
     Output {
       address: bond_addr,
       value: value.from_lovelace(504290959)
-        |> value.add(nft_pid, bond_name, 1),
+        |> value.add(bond_nft_pid, bond_name, 1),
       datum: InlineDatum(
         BondDatum {
           epo_rewards: value.from_lovelace(449315),
           duration: 72,
-          bond_symbol: bond_pid,
+          bond_symbol: bond_token_pid,
           token_name: bond_name,
           bond_amount: issue_qty,
           buffer: 6,
@@ -169,7 +172,7 @@ test succ_bond_create() {
     Output {
       address: req_addr,
       value: value.from_lovelace(319463010)
-        |> value.add(req_pid, borrower_nft, 1),
+        |> value.add(req_nft_pid, borrower_nft, 1),
       datum: InlineDatum(
         RequestDatum {
           apr: 656,
@@ -194,8 +197,8 @@ test succ_bond_create() {
       reference_script: None,
     }
   let mint_tokens =
-    value.from_asset(bond_pid, bond_name, issue_qty)
-      |> value.add(nft_pid, bond_name, 1)
+    value.from_asset(bond_token_pid, bond_name, issue_qty)
+      |> value.add(bond_nft_pid, bond_name, 1)
       |> value.to_minted_value()
   let tx_time =
     interval.between(
@@ -224,32 +227,14 @@ test succ_bond_create() {
     ScriptContext { transaction: tx, purpose: Spend(input_01.output_reference) }
 
   and {
-    bond_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      bond_skh,
-      nft_pid,
-      req_pid,
-      input_01.output_reference,
-    ),
+    bond_nft.minting(cfg, tx, bond_nft_pid, req_nft_pid),
     bond_token.minting_without_fee(
       cfg,
       tx,
-      req_skh,
-      bond_skh,
-      nft_pid,
-      bond_pid,
-      input_01.output_reference,
+      req_nft_pid,
+      bond_nft_pid,
+      bond_token_pid,
     ),
-    bond_create.spending(
-      cfg,
-      ctx,
-      sreq_dt,
-      bond_skh,
-      nft_pid,
-      bond_pid,
-      req_pid,
-    ),
+    bond_create.spending(cfg, ctx, sreq_dt, bond_nft_pid, bond_token_pid),
   }
 }

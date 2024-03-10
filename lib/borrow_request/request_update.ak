@@ -1,5 +1,5 @@
 use aiken/list
-use aiken/transaction.{InlineDatum, Transaction}
+use aiken/transaction.{InlineDatum, ScriptContext, Spend, Transaction}
 use aiken/transaction/credential.{ScriptCredential, VerificationKeyCredential}
 use aiken/transaction/value.{PolicyId}
 use bond_issue/types.{BondIssueConfig, RequestDatum} as bond_issue_types
@@ -8,16 +8,20 @@ use issue_bond/utils.{check_output_request_base}
 
 pub fn spending(
   cfg: BondIssueConfig,
-  tx: Transaction,
+  ctx: ScriptContext,
   sreq_dt: RequestDatum,
-  req_pid: PolicyId,
 ) -> Bool {
+  expect Spend(sreq_out_ref) = ctx.purpose
+  let tx = ctx.transaction
+  expect Some(sreq) = transaction.find_input(tx.inputs, sreq_out_ref)
+  expect ScriptCredential(req_nft_pid) = sreq.output.address.payment_credential
+
   let (oreq_found, borrower_found) =
-    get_request_output(cfg, tx, sreq_dt, req_pid)
+    get_request_output(cfg, tx, sreq_dt, req_nft_pid)
   let nft_burn_qty =
     value.quantity_of(
       value.from_minted_value(tx.mint),
-      req_pid,
+      req_nft_pid,
       sreq_dt.borrower,
     )
   and {
@@ -33,7 +37,7 @@ pub fn get_request_output(
   cfg: BondIssueConfig,
   tx: Transaction,
   sreq_dt: RequestDatum,
-  req_pid: PolicyId,
+  req_nft_pid: PolicyId,
 ) -> BorrowRequestOutput {
   list.foldr(
     tx.outputs,
@@ -44,7 +48,7 @@ pub fn get_request_output(
           VerificationKeyCredential(_) -> False
           ScriptCredential(_) -> True
         },
-        value.quantity_of(o.value, req_pid, sreq_dt.borrower) == 1,
+        value.quantity_of(o.value, req_nft_pid, sreq_dt.borrower) == 1,
       } {
         expect oreq_dt: RequestDatum =
           when o.datum is {

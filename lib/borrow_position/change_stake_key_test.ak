@@ -19,9 +19,9 @@ use common/time.{
 }
 use issue_bond/types.{BondChangeStakeKey}
 
-const nft_pid = "nft_pid"
+const bond_nft_pid = "bond_nft_pid"
 
-const bond_skh = "bond_skh"
+const bond_skh = "bond_nft_pid"
 
 const ada = 1_000_000
 
@@ -59,7 +59,7 @@ fn build_bond_output(datum: BondDatum, stake: ByteArray) {
     address: credential.from_script(bond_skh)
       |> credential.with_delegation_key(stake),
     value: value.from_lovelace(locked_value)
-      |> value.add(nft_pid, datum.token_name, 1),
+      |> value.add(bond_nft_pid, datum.token_name, 1),
     datum: InlineDatum(datum),
     reference_script: None,
   }
@@ -125,7 +125,7 @@ fn build_tx(bonds: List<(Input, List<Output>)>) {
                redeemers
                  |> dict.insert(
                       Spend(sbond.output_reference),
-                      BondChangeStakeKey { pid: nft_pid },
+                      BondChangeStakeKey { pid: bond_nft_pid },
                       script_purpose_compare,
                     ),
              )
@@ -186,7 +186,7 @@ fn validate(output_desriptor: fn(Output) -> Output) {
     tx: tx,
     sbond: bond,
     sbond_dt: get_bond_datum(bond),
-    nft_pid: nft_pid,
+    bond_nft_pid: bond_nft_pid,
   )
 }
 
@@ -402,7 +402,7 @@ test fail_when_setting_incorrect_nft_policy() fail {
     fn(obond) {
       let datum = get_bond_datum(obond)
       obond
-        |> add_asset(nft_pid, datum.token_name, -1)
+        |> add_asset(bond_nft_pid, datum.token_name, -1)
         |> add_asset("other_pid", datum.token_name, 1)
     },
   )
@@ -413,8 +413,8 @@ test fail_when_setting_incorrect_nft_name() fail {
     fn(obond) {
       let datum = get_bond_datum(obond)
       obond
-        |> add_asset(nft_pid, datum.token_name, -1)
-        |> add_asset(nft_pid, "other_name", 1)
+        |> add_asset(bond_nft_pid, datum.token_name, -1)
+        |> add_asset(bond_nft_pid, "other_name", 1)
     },
   )
 }
@@ -466,7 +466,7 @@ test fail_when_changing_stake_key_at_maturity_date() {
     },
     sbond: bond,
     sbond_dt: get_bond_datum(bond),
-    nft_pid: nft_pid,
+    bond_nft_pid: bond_nft_pid,
   )
 }
 
@@ -517,7 +517,7 @@ test fail_when_changing_stake_key_after_maturity_date() {
     },
     sbond: bond,
     sbond_dt: get_bond_datum(bond),
-    nft_pid: nft_pid,
+    bond_nft_pid: bond_nft_pid,
   )
 }
 
@@ -558,6 +558,6 @@ test fail_when_changing_stake_key_after_redeem_fee() {
     tx: tx,
     sbond: bond,
     sbond_dt: get_bond_datum(bond),
-    nft_pid: nft_pid,
+    bond_nft_pid: bond_nft_pid,
   )
 }

@@ -1,34 +1,29 @@
 use aiken/dict
 use aiken/list
 use aiken/option
-use aiken/transaction.{InlineDatum, OutputReference, Transaction}
+use aiken/transaction.{InlineDatum, Transaction}
 use aiken/transaction/credential.{Address, ScriptCredential}
 use aiken/transaction/value.{PolicyId}
 use bond_issue/types.{BondDatum, BondIssueConfig, RequestDatum}
 use common/hash_out_refs.{hash_out_ref_salt}
 use common/time.{get_current_epoch_with_ttl}
-use common/types.{ScriptKeyHash} as common_types
 use issue_bond/utils.{
   check_output_request_base, get_burn_nft_names, get_input_by_nft_names,
   get_output_by_nft_names,
 }
 
-pub fn burning_bond_redeem(
-  tx: Transaction,
-  nft_pid: PolicyId,
-  _bond_pid: PolicyId,
-) -> Bool {
-  burning_valid(tx, nft_pid)
+pub fn burning_bond_redeem(tx: Transaction, bond_nft_pid: PolicyId) -> Bool {
+  burning_valid(tx, bond_nft_pid)
 }
 
-pub fn burning_force_redeem(tx: Transaction, nft_pid: PolicyId) -> Bool {
-  burning_valid(tx, nft_pid)
+pub fn burning_force_redeem(tx: Transaction, bond_nft_pid: PolicyId) -> Bool {
+  burning_valid(tx, bond_nft_pid)
 }
 
-fn burning_valid(tx: Transaction, nft_pid: PolicyId) -> Bool {
-  let burn_names = get_burn_nft_names(tx, nft_pid)
-  let ibond = get_input_by_nft_names(tx, burn_names, nft_pid)
-  let obond = get_output_by_nft_names(tx, burn_names, nft_pid)
+fn burning_valid(tx: Transaction, bond_nft_pid: PolicyId) -> Bool {
+  let burn_names = get_burn_nft_names(tx, bond_nft_pid)
+  let ibond = get_input_by_nft_names(tx, burn_names, bond_nft_pid)
+  let obond = get_output_by_nft_names(tx, burn_names, bond_nft_pid)
   and {
     (list.length(burn_names) > 0)?,
     (list.length(ibond) == list.length(burn_names))?,
@@ -39,13 +34,11 @@ fn burning_valid(tx: Transaction, nft_pid: PolicyId) -> Bool {
 pub fn minting(
   cfg: BondIssueConfig,
   tx: Transaction,
-  req_skh: ScriptKeyHash,
-  bond_skh: ScriptKeyHash,
-  nft_pid: PolicyId,
-  req_pid: PolicyId,
-  _out_ref: OutputReference,
+  bond_nft_pid: PolicyId,
+  req_nft_pid: PolicyId,
 ) -> Bool {
-  let bond_nft_mint = value.tokens(value.from_minted_value(tx.mint), nft_pid)
+  let bond_nft_mint =
+    value.tokens(value.from_minted_value(tx.mint), bond_nft_pid)
   let (bond_name_mint_valid, bond_name_mint_valid_count) =
     dict.foldr(
       bond_nft_mint,
@@ -59,16 +52,16 @@ pub fn minting(
       },
     )
   if (dict.size(bond_nft_mint) == bond_name_mint_valid_count)? {
-    let req_pk = ScriptCredential(req_skh)
+    let req_pk = ScriptCredential(req_nft_pid)
     let (bond_name_inputs_valid, bond_name_inputs_valid_count) =
       list.foldr(
         tx.inputs,
         ([], 0),
         fn(i, z) {
-          let req_tokens = value.tokens(i.output.value, req_pid)
+          let req_nft_tokens = value.tokens(i.output.value, req_nft_pid)
           if and {
             i.output.address.payment_credential == req_pk,
-            dict.size(req_tokens) == 1,
+            dict.size(req_nft_tokens) == 1,
           } {
             expect sreq_dt: RequestDatum =
               when i.output.datum is {
@@ -81,14 +74,16 @@ pub fn minting(
               check_output_request_base(cfg, i.output, sreq_dt)?,
               (sreq_dt.requested > sreq_dt.issued)?,
               (sreq_dt.issued >= 0)?,
-              (( dict.get(req_tokens, sreq_dt.borrower) |> option.or_else(0) ) == 1)?,
+              ((
+                dict.get(req_nft_tokens, sreq_dt.borrower) |> option.or_else(0)
+              ) == 1)?,
             } {
               let bond_name =
                 hash_out_ref_salt(i.output_reference, sreq_dt.borrower)
               if !list.has(z.1st, bond_name) {
                 ([bond_name, ..z.1st], z.2nd + 1)
               } else {
-                fail @"borrow request input is unique"
+                fail @"borrow request input must be unique"
               }
             } else {
               fail
@@ -109,16 +104,16 @@ pub fn minting(
             cfg.platform.tx_ttl,
             cfg.slot.slot_length,
           )
-        let bond_pk = ScriptCredential(bond_skh)
+        let bond_pk = ScriptCredential(bond_nft_pid)
         let (_, bond_name_outputs_valid_count) =
           list.foldr(
             tx.outputs,
             ([], 0),
             fn(o, z) {
-              let nft_tokens = value.tokens(o.value, nft_pid)
+              let bond_nft_tokens = value.tokens(o.value, bond_nft_pid)
               if and {
                 o.address.payment_credential == bond_pk,
-                dict.size(nft_tokens) == 1,
+                dict.size(bond_nft_tokens) == 1,
               } {
                 expect obond_dt: BondDatum =
                   when o.datum is {
@@ -126,27 +121,27 @@ pub fn minting(
                     _ ->
                       fail @"borrow_position/bond_nft.minting: only supports InlineDatum for bond"
                   }
-                if and {
-                  ((
-                    dict.get(nft_tokens, obond_dt.token_name)
-                      |> option.or_else(0)
-                  ) == 1)?,
-                  //
-                  list.has(bond_name_inputs_valid, obond_dt.token_name)?,
-                  //
-                  (obond_dt.duration >= cfg.platform.min_duration)?,
-                  (obond_dt.buffer >= cfg.platform.min_buffer)?,
-                  (obond_dt.fee >= cfg.platform.fee)?,
-                  (obond_dt.bond_amount > 0)?,
-                  (obond_dt.start == epoch_curr - cfg.epoch.epoch_boundary_as_epoch)?,
-                } {
-                  if !list.has(z.1st, obond_dt.token_name) {
+                if !list.has(z.1st, obond_dt.token_name) {
+                  if and {
+                    ((
+                      dict.get(bond_nft_tokens, obond_dt.token_name)
+                        |> option.or_else(0)
+                    ) == 1)?,
+                    //
+                    list.has(bond_name_inputs_valid, obond_dt.token_name)?,
+                    //
+                    (obond_dt.duration >= cfg.platform.min_duration)?,
+                    (obond_dt.buffer >= cfg.platform.min_buffer)?,
+                    (obond_dt.fee >= cfg.platform.fee)?,
+                    (obond_dt.bond_amount > 0)?,
+                    (obond_dt.start == epoch_curr - cfg.epoch.epoch_boundary_as_epoch)?,
+                  } {
                     ([obond_dt.token_name, ..z.1st], z.2nd + 1)
                   } else {
-                    fail @"bond utxo output is unique"
+                    fail
                   }
                 } else {
-                  fail
+                  fail @"bond utxo output must be unique"
                 }
               } else {
                 z

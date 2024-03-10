@@ -5,7 +5,6 @@ use aiken/transaction/credential.{ScriptCredential}
 use aiken/transaction/value.{PolicyId}
 use bond_issue/types.{BondIssueConfig, RequestDatum} as bond_issue_types
 use common/hash_out_refs.{hash_out_ref}
-use common/types.{ScriptKeyHash} as common_types
 use issue_bond/utils.{check_output_request_base, get_burn_nft_names}
 
 pub fn burning_force_redeem(tx: Transaction, borrower_pid: PolicyId) -> Bool {
@@ -16,8 +15,7 @@ pub fn burning_force_redeem(tx: Transaction, borrower_pid: PolicyId) -> Bool {
 pub fn minting(
   cfg: BondIssueConfig,
   tx: Transaction,
-  req_skh: ScriptKeyHash,
-  req_pid: PolicyId,
+  req_nft_pid: PolicyId,
   borrower_pid: PolicyId,
 ) -> Bool {
   let valid_request_token_names =
@@ -30,18 +28,18 @@ pub fn minting(
       mint_borrower_nfts,
       fn(n, q) { list.has(valid_request_token_names, n) && q == 1 },
     )
-  let mint_req_nfts = value.tokens(mint_value, req_pid)
+  let mint_req_nfts = value.tokens(mint_value, req_nft_pid)
   let mint_req_nfts_valid =
     dict.filter(
       mint_req_nfts,
       fn(n, q) { list.has(valid_request_token_names, n) && q == 1 },
     )
-  let req_pk = ScriptCredential(req_skh)
+  let req_pk = ScriptCredential(req_nft_pid)
   let dist_req_nfts =
     list.filter(
       tx.outputs,
       fn(o) {
-        let req_tokens = value.tokens(o.value, req_pid)
+        let req_tokens = value.tokens(o.value, req_nft_pid)
         if and {
           o.address.payment_credential == req_pk,
           dict.size(req_tokens) == 1,
@@ -52,7 +50,7 @@ pub fn minting(
               _ -> fail @"only supports InlineDatum for borrow request"
             }
           if and {
-            (value.quantity_of(o.value, req_pid, oreq_dt.borrower) == 1)?,
+            (value.quantity_of(o.value, req_nft_pid, oreq_dt.borrower) == 1)?,
             dict.has_key(mint_req_nfts_valid, oreq_dt.borrower)?,
             (oreq_dt.issued == 0)?,
             (o.address.stake_credential != None)?,

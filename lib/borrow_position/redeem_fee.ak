@@ -10,7 +10,7 @@ pub fn spending(
   tx: Transaction,
   sbond: Output,
   sbond_dt: BondDatum,
-  nft_pid: PolicyId,
+  bond_nft_pid: PolicyId,
   default_stake_cred: StakeCredential,
 ) -> Bool {
   when
@@ -35,7 +35,7 @@ pub fn spending(
           value.without_lovelace(sbond.value),
           sbond.address,
           sbond_dt,
-          nft_pid,
+          bond_nft_pid,
           sbond_interest_paid,
           default_stake_cred,
         ),
@@ -52,7 +52,7 @@ pub fn redeem_valid(
   sbond_assets: Value,
   sbond_addr: Address,
   sbond_dt: BondDatum,
-  nft_pid: PolicyId,
+  bond_nft_pid: PolicyId,
   sbond_interest_paid: Int,
   default_stake_cred: StakeCredential,
 ) -> Bool {
@@ -63,7 +63,7 @@ pub fn redeem_valid(
       fn(o, z) {
         if and {
           o.address.payment_credential == sbond_addr.payment_credential,
-          value.quantity_of(o.value, nft_pid, sbond_dt.token_name) == 1,
+          value.quantity_of(o.value, bond_nft_pid, sbond_dt.token_name) == 1,
         } {
           if (z.1st == None)? {
             (Some(o), z.2nd)
@@ -115,7 +115,7 @@ pub fn redeem_valid(
         (sbond_dt.bond_amount == 0)?,
         (value.quantity_of(
           value.from_minted_value(tx.mint),
-          nft_pid,
+          bond_nft_pid,
           sbond_dt.token_name,
         ) == -1)?,
       }

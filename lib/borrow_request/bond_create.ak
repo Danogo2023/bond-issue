@@ -10,22 +10,20 @@ use bond_issue/types.{BondDatum, BondIssueConfig, RequestDatum}
 use borrow_request/types.{BondCreateOutput} as borrow_request_types
 use common/hash_out_refs.{hash_out_ref_salt}
 use common/time.{get_current_epoch_with_ttl}
-use common/types.{ScriptKeyHash} as common_types
 use issue_bond/utils.{check_output_request_base}
 
 pub fn spending(
   cfg: BondIssueConfig,
   ctx: ScriptContext,
   sreq_dt: RequestDatum,
-  bond_skh: ScriptKeyHash,
-  nft_pid: PolicyId,
-  bond_pid: PolicyId,
-  req_pid: PolicyId,
+  bond_nft_pid: PolicyId,
+  bond_token_pid: PolicyId,
 ) -> Bool {
   expect Spend(sreq_out_ref) = ctx.purpose
   let tx = ctx.transaction
-  let bond_pk = ScriptCredential(bond_skh)
+  let bond_pk = ScriptCredential(bond_nft_pid)
   //
+  // expect Some(sreq) = transaction.find_input(tx.inputs, sreq_out_ref)
   when
     list.filter(
       tx.inputs,
@@ -34,9 +32,12 @@ pub fn spending(
       },
     )
   is {
-    [sreq] ->
+    [sreq] -> {
+      expect ScriptCredential(req_nft_pid) =
+        sreq.output.address.payment_credential
+
       if
-      (value.quantity_of(sreq.output.value, req_pid, sreq_dt.borrower) == 1)?{
+      (value.quantity_of(sreq.output.value, req_nft_pid, sreq_dt.borrower) == 1)?{
       
         let bond_name =
           hash_out_ref_salt(sreq.output_reference, sreq_dt.borrower)
@@ -47,8 +48,8 @@ pub fn spending(
             bond_pk,
             sreq.output,
             sreq_dt,
-            req_pid,
-            nft_pid,
+            req_nft_pid,
+            bond_nft_pid,
             bond_name,
           )
         is {
@@ -60,10 +61,10 @@ pub fn spending(
               sreq_dt,
               obond,
               mint_qty,
-              nft_pid,
-              bond_pid,
+              bond_nft_pid,
+              bond_token_pid,
               bond_name,
-              req_pid,
+              req_nft_pid,
               oreq_found,
             )
           (_, None, _) -> fail @"not found bond output"
@@ -71,6 +72,7 @@ pub fn spending(
       } else {
         fail @"not found request nft at input"
       }
+    }
     _ ->
       fail @"borrow_request/bond_create.spending: bond utxo are not allowed in tx input"
   }
@@ -82,8 +84,8 @@ pub fn get_create_output(
   bond_pk: PaymentCredential,
   sreq: Output,
   sreq_dt: RequestDatum,
-  req_pid: PolicyId,
-  nft_pid: PolicyId,
+  req_nft_pid: PolicyId,
+  bond_nft_pid: PolicyId,
   bond_name: AssetName,
 ) -> BondCreateOutput {
   let bond_addr =
@@ -97,7 +99,7 @@ pub fn get_create_output(
     fn(o, z) {
       if and {
         o.address == sreq.address,
-        value.quantity_of(o.value, req_pid, sreq_dt.borrower) == 1,
+        value.quantity_of(o.value, req_nft_pid, sreq_dt.borrower) == 1,
       } {
         expect oreq_dt: RequestDatum =
           when o.datum is {
@@ -132,7 +134,7 @@ pub fn get_create_output(
         }
       } else if and {
         o.address == bond_addr,
-        value.quantity_of(o.value, nft_pid, bond_name) == 1,
+        value.quantity_of(o.value, bond_nft_pid, bond_name) == 1,
       } {
         if (z.2nd == None)? {
           (z.1st, Some(o), z.3rd)
@@ -153,10 +155,10 @@ fn bond_output_valid(
   sreq_dt: RequestDatum,
   obond: Output,
   mint_qty: Int,
-  nft_pid: PolicyId,
-  bond_pid: PolicyId,
+  bond_nft_pid: PolicyId,
+  bond_token_pid: PolicyId,
   bond_name: AssetName,
-  req_pid: PolicyId,
+  req_nft_pid: PolicyId,
   oreq_found: Bool,
 ) -> Bool {
   expect obond_dt: BondDatum =
@@ -174,7 +176,7 @@ fn bond_output_valid(
     )
   and {
     (obond_dt.duration == sreq_dt.duration)?,
-    (obond_dt.bond_symbol == bond_pid)?,
+    (obond_dt.bond_symbol == bond_token_pid)?,
     (obond_dt.token_name == bond_name)?,
     (obond_dt.bond_amount > 0)?,
     (obond_dt.bond_amount == mint_qty)?,
@@ -182,31 +184,31 @@ fn bond_output_valid(
     (obond_dt.fee == sreq_dt.fee)?,
     (obond_dt.borrower == sreq_dt.borrower)?,
     (obond_dt.start == epoch_curr - cfg.epoch.epoch_boundary_as_epoch)?,
-    tx_mint_valid(tx_mint, nft_pid, obond_dt, req_pid, oreq_found),
-    bond_value_valid(cfg, sreq_dt, nft_pid, obond_dt, obond),
+    tx_mint_valid(tx_mint, bond_nft_pid, obond_dt, req_nft_pid, oreq_found),
+    bond_value_valid(cfg, sreq_dt, bond_nft_pid, obond_dt, obond),
   }
 }
 
 fn tx_mint_valid(
   tx_mint: MintedValue,
-  nft_pid: PolicyId,
+  bond_nft_pid: PolicyId,
   obond_dt: BondDatum,
-  req_pid: PolicyId,
+  req_nft_pid: PolicyId,
   oreq_found: Bool,
 ) -> Bool {
   dict.foldr(
     value.to_dict(value.from_minted_value(tx_mint)),
     True,
     fn(k, v, z) {
-      if k == nft_pid || k == req_pid || k == obond_dt.bond_symbol {
+      if k == bond_nft_pid || k == req_nft_pid || k == obond_dt.bond_symbol {
         let bond_qty = dict.get(v, obond_dt.token_name) |> option.or_else(0)
-        if k == nft_pid && bond_qty != 1 {
+        if k == bond_nft_pid && bond_qty != 1 {
           fail @"bond nft mint qty invalid"
         } else if k == obond_dt.bond_symbol && bond_qty != obond_dt.bond_amount {
           fail @"bond token mint qty invalid"
         } else {
           let req_qty = dict.get(v, obond_dt.borrower) |> option.or_else(0)
-          if oreq_found == False && k == req_pid && req_qty != -1 {
+          if oreq_found == False && k == req_nft_pid && req_qty != -1 {
             fail @"request nft burn qty invalid"
           } else {
             z
@@ -222,7 +224,7 @@ fn tx_mint_valid(
 fn bond_value_valid(
   cfg: BondIssueConfig,
   sreq_dt: RequestDatum,
-  nft_pid: PolicyId,
+  bond_nft_pid: PolicyId,
   obond_dt: BondDatum,
   obond: Output,
 ) -> Bool {
@@ -233,7 +235,7 @@ fn bond_value_valid(
   and {
     (value.lovelace_of(obond_dt.epo_rewards) == obond_epo_rewards)?,
     bond_asset_valid(
-      nft_pid,
+      bond_nft_pid,
       obond_dt,
       obond,
       obond_principal + required_premium,
@@ -242,7 +244,7 @@ fn bond_value_valid(
 }
 
 fn bond_asset_valid(
-  nft_pid: PolicyId,
+  bond_nft_pid: PolicyId,
   obond_dt: BondDatum,
   obond: Output,
   obond_paid: Int,
@@ -251,14 +253,14 @@ fn bond_asset_valid(
     value.to_dict(obond.value),
     True,
     fn(k, v, z) {
-      if k == value.ada_policy_id || k == nft_pid {
+      if k == value.ada_policy_id || k == bond_nft_pid {
         if
         k == value.ada_policy_id && (
           dict.get(v, value.ada_asset_name) |> option.or_else(0)
         ) < obond_paid{
         
           fail @"lovelace qty of bond ouput invalid"
-        } else if k == nft_pid && (
+        } else if k == bond_nft_pid && (
           dict.get(v, obond_dt.token_name) |> option.or_else(0)
         ) != 1 {
           fail @"bond nft qty of bond ouput invalid"
