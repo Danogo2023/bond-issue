@@ -24,10 +24,9 @@ validator(cfg: BondIssueConfig) {
     expect Mint(borrower_pid) = ctx.purpose
     let tx = ctx.transaction
     when ac is {
-      RequestCreate { pid: req_nft_pid, .. } ->
+      RequestCreate { req_nft_pid } ->
         borrower_nft.minting(cfg, tx, req_nft_pid, borrower_pid)
-      RequestUpdate { .. } ->
-        borrower_nft.burning_force_redeem(tx, borrower_pid)
+      RequestUpdate -> borrower_nft.burning_force_redeem(tx, borrower_pid)
       _ ->
         fail @"minting borrower nft only support RequestCreate | RequestUpdate action"
     }
@@ -44,9 +43,9 @@ validator(
     expect Mint(bond_nft_pid) = ctx.purpose
     let tx = ctx.transaction
     when ac is {
-      BondCreate { pid: req_nft_pid, .. } ->
+      BondCreate { req_nft_pid } ->
         bond_nft.minting(cfg, tx, bond_nft_pid, req_nft_pid)
-      BondRedeem { .. } -> bond_nft.burning_bond_redeem(tx, bond_nft_pid)
+      BondRedeem -> bond_nft.burning_bond_redeem(tx, bond_nft_pid)
       _ -> fail @"minting bond nft only support BondCreate | BondRedeem action"
     }
   }
@@ -64,11 +63,11 @@ validator(
     expect ScriptCredential(bond_nft_pid) = sbond.address.payment_credential
 
     when ac is {
-      BondRedeem { .. } ->
+      BondRedeem ->
         redeem_bond.spending_with_fee(cfg, tx, sbond, sdt, bond_nft_pid)
-      BondPayInterest { .. } ->
+      BondPayInterest ->
         pay_interest.spending_without_fee(cfg, tx, sbond, sdt, bond_nft_pid)
-      BondChangeStakeKey { .. } ->
+      BondChangeStakeKey ->
         change_stake_key.spending(
           cfg,
           tx,
@@ -77,7 +76,7 @@ validator(
           bond_nft_pid,
           borrower_pid,
         )
-      RedeemFee { .. } ->
+      RedeemFee ->
         redeem_fee.spending(
           cfg,
           tx,
@@ -98,7 +97,7 @@ validator(cfg: BondIssueConfig, bond_nft_pid: PolicyId) {
     expect Mint(bond_token_pid) = ctx.purpose
     let tx = ctx.transaction
     when ac is {
-      BondCreate { pid: req_nft_pid, .. } ->
+      BondCreate { req_nft_pid } ->
         bond_token.minting_without_fee(
           cfg,
           tx,
@@ -106,7 +105,7 @@ validator(cfg: BondIssueConfig, bond_nft_pid: PolicyId) {
           bond_nft_pid,
           bond_token_pid,
         )
-      BondRedeem { .. } ->
+      BondRedeem ->
         bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid)
       _ ->
         fail @"minting bond token only support BondCreate | BondRedeem action"
@@ -134,8 +133,7 @@ validator(
           req_nft_pid,
           borrower_pid,
         )
-      RequestUpdate { .. } ->
-        request_nft.burning_request_update(tx, req_nft_pid)
+      RequestUpdate -> request_nft.burning_request_update(tx, req_nft_pid)
       _ ->
         fail @"minting request nft only support RequestCreate | RequestUpdate | BondCreate action"
     }
@@ -149,7 +147,7 @@ validator(
     when ac is {
       BondCreate { .. } ->
         bond_create.spending(cfg, ctx, sdt, bond_nft_pid, bond_token_pid)
-      RequestUpdate { .. } -> request_update.spending(cfg, ctx, sdt)
+      RequestUpdate -> request_update.spending(cfg, ctx, sdt)
       _ ->
         fail @"spending borrow request only support BondCreate | RequestUpdate action"
     }

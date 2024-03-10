@@ -1,3 +1,4 @@
+use aiken/bytearray
 use aiken/dict
 use aiken/list
 use aiken/option
@@ -8,8 +9,8 @@ use bond_issue/types.{BondDatum, BondIssueConfig, RequestDatum}
 use common/hash_out_refs.{hash_out_ref_salt}
 use common/time.{get_current_epoch_with_ttl}
 use issue_bond/utils.{
-  check_output_request_base, get_burn_nft_names, get_input_by_nft_names,
-  get_output_by_nft_names,
+  bond_asset_valid, check_output_request_base, get_burn_nft_names,
+  get_input_by_nft_names, get_output_by_nft_names,
 }
 
 pub fn burning_bond_redeem(tx: Transaction, bond_nft_pid: PolicyId) -> Bool {
@@ -53,10 +54,10 @@ pub fn minting(
     )
   if (dict.size(bond_nft_mint) == bond_name_mint_valid_count)? {
     let req_pk = ScriptCredential(req_nft_pid)
-    let (bond_name_inputs_valid, bond_name_inputs_valid_count) =
+    let (bond_inputs_valid, bond_name_inputs_valid_count) =
       list.foldr(
         tx.inputs,
-        ([], 0),
+        (dict.new(), 0),
         fn(i, z) {
           let req_nft_tokens = value.tokens(i.output.value, req_nft_pid)
           if and {
@@ -80,8 +81,16 @@ pub fn minting(
             } {
               let bond_name =
                 hash_out_ref_salt(i.output_reference, sreq_dt.borrower)
-              if !list.has(z.1st, bond_name) {
-                ([bond_name, ..z.1st], z.2nd + 1)
+              if !dict.has_key(z.1st, bond_name) {
+                (
+                  dict.insert(
+                    z.1st,
+                    bond_name,
+                    (i.output.address.stake_credential, sreq_dt),
+                    bytearray.compare,
+                  ),
+                  z.2nd + 1,
+                )
               } else {
                 fail @"borrow request input must be unique"
               }
@@ -93,6 +102,7 @@ pub fn minting(
           }
         },
       )
+    let bond_name_inputs_valid = dict.keys(bond_inputs_valid)
     and {
       (bond_name_inputs_valid_count == bond_name_mint_valid_count)?,
       (list.difference(bond_name_inputs_valid, bond_name_mint_valid) == [])?,
@@ -122,7 +132,11 @@ pub fn minting(
                       fail @"borrow_position/bond_nft.minting: only supports InlineDatum for bond"
                   }
                 if !list.has(z.1st, obond_dt.token_name) {
+                  expect Some((iskh, sreq_dt)) =
+                    dict.get(bond_inputs_valid, obond_dt.token_name)
                   if and {
+                    (obond_dt.borrower == sreq_dt.borrower)?,
+                    (o.address.stake_credential == iskh)?,
                     ((
                       dict.get(bond_nft_tokens, obond_dt.token_name)
                         |> option.or_else(0)
@@ -136,7 +150,24 @@ pub fn minting(
                     (obond_dt.bond_amount > 0)?,
                     (obond_dt.start == epoch_curr - cfg.epoch.epoch_boundary_as_epoch)?,
                   } {
-                    ([obond_dt.token_name, ..z.1st], z.2nd + 1)
+                    let obond_principal =
+                      obond_dt.bond_amount * cfg.platform.bond_face_value
+                    let obond_epo_rewards =
+                      obond_principal * sreq_dt.apr / cfg.basis.base / cfg.epoch.year_to_epoch
+                    let required_premium = obond_epo_rewards * sreq_dt.prepaid
+                    if and {
+                      (value.lovelace_of(obond_dt.epo_rewards) == obond_epo_rewards)?,
+                      bond_asset_valid(
+                        bond_nft_pid,
+                        obond_dt,
+                        o,
+                        obond_principal + required_premium,
+                      ),
+                    } {
+                      ([obond_dt.token_name, ..z.1st], z.2nd + 1)
+                    } else {
+                      fail
+                    }
                   } else {
                     fail
                   }

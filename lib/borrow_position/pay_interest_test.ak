@@ -109,7 +109,7 @@ fn build_tx(bonds: List<(Input, List<Output>)>) {
                redeemers
                  |> dict.insert(
                       Spend(sbond.output_reference),
-                      BondPayInterest { pid: bond_nft_pid },
+                      BondPayInterest,
                       script_purpose_compare,
                     ),
              )

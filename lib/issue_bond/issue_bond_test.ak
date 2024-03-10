@@ -315,10 +315,7 @@ fn with_expected_redeemers(
     |> dict.insert(
          Spend(spending_request.output_reference),
          BondCreate {
-           out_ref: spending_request.output_reference,
-           req_skh,
-           bond_skh,
-           pid: bond_token_pid,
+           req_nft_pid
          },
          script_purpose_compare,
        )
@@ -1180,7 +1177,7 @@ test fail_when_attempting_other_redeemer_attack_on_bond_nft_policy() fail {
                  |> dict.delete(Mint(bond_nft_pid))
                  |> dict.insert(
                       Spend(sreq.output_reference),
-                      BondRedeem { pid: bond_nft_pid },
+                      BondRedeem,
                       script_purpose_compare,
                     ),
              },
@@ -1240,7 +1237,7 @@ test fail_when_attempting_other_redeemer_attack_on_bond_policy() fail {
                  |> dict.delete(Mint(bond_token_pid))
                  |> dict.insert(
                       Spend(sreq.output_reference),
-                      BondRedeem { pid: bond_token_pid },
+                      BondRedeem,
                       script_purpose_compare,
                     ),
              },
