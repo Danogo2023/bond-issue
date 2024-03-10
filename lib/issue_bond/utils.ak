@@ -1,6 +1,7 @@
 use aiken/dict
 use aiken/list
 use aiken/math
+use aiken/option
 use aiken/transaction.{Input, Output, Transaction}
 use aiken/transaction/credential.{ScriptCredential, VerificationKeyCredential}
 use aiken/transaction/value.{AssetName, PolicyId}
@@ -136,4 +137,35 @@ pub fn bond_closable(
     (epoch_curr >= epoch_end)?,
     (sbond_paid_epoch < epoch_required_premium)?,
   }
+}
+
+pub fn bond_asset_valid(
+  bond_nft_pid: PolicyId,
+  obond_dt: BondDatum,
+  obond: Output,
+  obond_paid: Int,
+) -> Bool {
+  dict.foldr(
+    value.to_dict(obond.value),
+    True,
+    fn(k, v, z) {
+      if k == value.ada_policy_id || k == bond_nft_pid {
+        if
+        k == value.ada_policy_id && (
+          dict.get(v, value.ada_asset_name) |> option.or_else(0)
+        ) < obond_paid{
+        
+          fail @"lovelace qty of bond ouput invalid"
+        } else if k == bond_nft_pid && (
+          dict.get(v, obond_dt.token_name) |> option.or_else(0)
+        ) != 1 {
+          fail @"bond nft qty of bond ouput invalid"
+        } else {
+          z
+        }
+      } else {
+        z
+      }
+    },
+  )
 }

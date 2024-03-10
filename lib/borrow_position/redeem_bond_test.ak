@@ -229,17 +229,17 @@ fn build_tx(redeem_type: RedeemType) {
     t.redeemers
       |> dict.insert(
            Spend(sbond.output_reference),
-           BondRedeem { pid: bond_nft_pid },
+           BondRedeem,
            script_purpose_compare,
          )
       |> dict.insert(
            Mint(bond_nft_pid),
-           BondRedeem { pid: bond_nft_pid },
+           BondRedeem,
            script_purpose_compare,
          )
       |> dict.insert(
            Mint(bond_token_pid),
-           BondRedeem { pid: bond_token_pid },
+           BondRedeem,
            script_purpose_compare,
          )
   let tx =

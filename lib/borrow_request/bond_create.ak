@@ -10,7 +10,7 @@ use bond_issue/types.{BondDatum, BondIssueConfig, RequestDatum}
 use borrow_request/types.{BondCreateOutput} as borrow_request_types
 use common/hash_out_refs.{hash_out_ref_salt}
 use common/time.{get_current_epoch_with_ttl}
-use issue_bond/utils.{check_output_request_base}
+use issue_bond/utils.{check_output_request_base, bond_asset_valid}
 
 pub fn spending(
   cfg: BondIssueConfig,
@@ -241,35 +241,4 @@ fn bond_value_valid(
       obond_principal + required_premium,
     ),
   }
-}
-
-fn bond_asset_valid(
-  bond_nft_pid: PolicyId,
-  obond_dt: BondDatum,
-  obond: Output,
-  obond_paid: Int,
-) -> Bool {
-  dict.foldr(
-    value.to_dict(obond.value),
-    True,
-    fn(k, v, z) {
-      if k == value.ada_policy_id || k == bond_nft_pid {
-        if
-        k == value.ada_policy_id && (
-          dict.get(v, value.ada_asset_name) |> option.or_else(0)
-        ) < obond_paid{
-        
-          fail @"lovelace qty of bond ouput invalid"
-        } else if k == bond_nft_pid && (
-          dict.get(v, obond_dt.token_name) |> option.or_else(0)
-        ) != 1 {
-          fail @"bond nft qty of bond ouput invalid"
-        } else {
-          z
-        }
-      } else {
-        z
-      }
-    },
-  )
 }

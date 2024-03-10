@@ -9,7 +9,8 @@ use bond_issue/types.{BondDatum, BondIssueConfig, RequestDatum}
 use common/hash_out_refs.{hash_out_ref_salt}
 use common/time.{get_current_epoch_with_ttl}
 use issue_bond/utils.{
-  check_output_request_base, get_burn_token_names, get_input_by_nft_names,
+  bond_asset_valid, check_output_request_base, get_burn_token_names,
+  get_input_by_nft_names,
 }
 
 pub fn burning_bond_redeem(
@@ -172,7 +173,24 @@ pub fn minting_without_fee(
                     (obond_dt.bond_amount == bond_token_mint_qty)?,
                     (obond_dt.start == epoch_curr - cfg.epoch.epoch_boundary_as_epoch)?,
                   } {
-                    ([obond_dt.token_name, ..z.1st], z.2nd + 1)
+                    let obond_principal =
+                      obond_dt.bond_amount * cfg.platform.bond_face_value
+                    let obond_epo_rewards =
+                      obond_principal * sreq_dt.apr / cfg.basis.base / cfg.epoch.year_to_epoch
+                    let required_premium = obond_epo_rewards * sreq_dt.prepaid
+                    if and {
+                      (value.lovelace_of(obond_dt.epo_rewards) == obond_epo_rewards)?,
+                      bond_asset_valid(
+                        bond_nft_pid,
+                        obond_dt,
+                        o,
+                        obond_principal + required_premium,
+                      ),
+                    } {
+                      ([obond_dt.token_name, ..z.1st], z.2nd + 1)
+                    } else {
+                      fail
+                    }
                   } else {
                     fail
                   }
