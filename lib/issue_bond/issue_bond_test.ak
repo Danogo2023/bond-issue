@@ -25,13 +25,13 @@ use issue_bond/types.{BondCreate, BondRedeem} as issue_bond_types
 // ===============Params==============
 const ada = 1_000_000
 
-const req_skh = "borrow-req-skh"
+const req_nft_pid = "borrow-request-policy-id"
 
-const req_pid = "borrow-request-policy-id"
+const req_skh = "borrow-request-policy-id"
 
-const bond_skh = "bond-skh"
+const bond_nft_pid = "bond-nft-policy-id"
 
-const nft_pid = "bond-nft-policy-id"
+const bond_skh = "bond-nft-policy-id"
 
 const lender_st = "lender-stake-credential"
 
@@ -39,7 +39,7 @@ const lender_pk = "lender-payment-credential"
 
 const borrower_st = "borrower-stake-credential"
 
-const bond_pid = "bond-policy-id"
+const bond_token_pid = "bond-policy-id"
 
 const borrower = "hashed-asset-name"
 
@@ -201,12 +201,12 @@ fn build_request_input(
       address: credential.from_script(req_skh)
         |> credential.with_delegation_key(borrower_st),
       value: value.from_lovelace(100 * ada)
-        |> value.add(req_pid, borrower, 1),
+        |> value.add(req_nft_pid, borrower, 1),
       datum: InlineDatum(
         RequestDatum {
           apr,
           duration,
-          symbol: req_pid,
+          symbol: req_nft_pid,
           borrower,
           requested,
           issued,
@@ -244,11 +244,11 @@ fn fulfill_borrow_request(request: Input, lend_amt: LendAmount) {
   let locked_value =
     required_premium + principal
       |> value.from_lovelace
-      |> value.add(nft_pid, token_name, 1)
+      |> value.add(bond_nft_pid, token_name, 1)
   let epo_rewards_assets =
     principal * apr / cfg.basis.base / cfg.epoch.year_to_epoch
       |> value.from_lovelace
-      |> value.add(nft_pid, token_name, 1)
+      |> value.add(bond_nft_pid, token_name, 1)
   let bond_out =
     Output {
       address: credential.from_script(bond_skh)
@@ -258,7 +258,7 @@ fn fulfill_borrow_request(request: Input, lend_amt: LendAmount) {
         BondDatum {
           epo_rewards: epo_rewards_assets,
           duration,
-          bond_symbol: bond_pid,
+          bond_symbol: bond_token_pid,
           token_name,
           buffer,
           fee,
@@ -318,25 +318,25 @@ fn with_expected_redeemers(
            out_ref: spending_request.output_reference,
            req_skh,
            bond_skh,
-           pid: bond_pid,
+           pid: bond_token_pid,
          },
          script_purpose_compare,
        )
     |> dict.insert(
-         Mint(nft_pid),
+         Mint(bond_nft_pid),
          MintingRedeemer {
            out_ref: spending_request.output_reference,
            req_skh,
-           pid: nft_pid,
+           pid: bond_nft_pid,
          },
          script_purpose_compare,
        )
     |> dict.insert(
-         Mint(bond_pid),
+         Mint(bond_token_pid),
          MintingRedeemer {
            out_ref: spending_request.output_reference,
            req_skh,
-           pid: bond_pid,
+           pid: bond_token_pid,
          },
          script_purpose_compare,
        )
@@ -396,8 +396,8 @@ fn build_tx(request: FulfillmentState, lend_amount: LendAmount) {
   let lender_out = add_lovelace(lender_in.output, -get_lovelace(fee_out))
   let mint =
     value.zero()
-      |> value.add(nft_pid, bond_datum.token_name, 1)
-      |> value.add(bond_pid, bond_datum.token_name, bond_datum.bond_amount)
+      |> value.add(bond_nft_pid, bond_datum.token_name, 1)
+      |> value.add(bond_token_pid, bond_datum.token_name, bond_datum.bond_amount)
       |> value.to_minted_value
   (
     request_in,
@@ -468,9 +468,9 @@ fn build_multi_requests_tx(
                       },
                     ),
                minted
-                 |> value.add(nft_pid, bond_datum.token_name, 1)
+                 |> value.add(bond_nft_pid, bond_datum.token_name, 1)
                  |> value.add(
-                      bond_pid,
+                      bond_token_pid,
                       bond_datum.token_name,
                       bond_datum.bond_amount,
                     ),
@@ -512,39 +512,27 @@ fn validate(args: (Input, ScriptContext)) {
     string.from_int(list.length(tx.outputs)),
   )
   and {
-    bond_nft.minting(
-      cfg,
-      tx,
-      req_skh,
-      bond_skh,
-      nft_pid,
-      req_pid,
-      spending_request.output_reference,
-    ),
+    bond_nft.minting(cfg, ctx.transaction, bond_nft_pid, req_nft_pid),
     bond_token.minting_without_fee(
       cfg,
       tx,
-      req_skh,
-      bond_skh,
-      nft_pid,
-      bond_pid,
-      spending_request.output_reference,
+      req_nft_pid,
+      bond_nft_pid,
+      bond_token_pid,
     ),
     bond_create.spending(
       cfg,
       ctx,
       get_request_datum(spending_request.output),
-      bond_skh,
-      nft_pid,
-      bond_pid,
-      req_pid,
+      bond_nft_pid,
+      bond_token_pid,
     ),
   }
 }
 
 fn validate_bond_nft_minting(args: (Input, ScriptContext)) {
   let cfg = build_cfg()
-  let (spending_request, ctx) = args
+  let (_spending_request, ctx) = args
   let tx = ctx.transaction
   trace @"==================="
   trace string.concat(
@@ -559,15 +547,7 @@ fn validate_bond_nft_minting(args: (Input, ScriptContext)) {
     @"count outputs: ",
     string.from_int(list.length(tx.outputs)),
   )
-  bond_nft.minting(
-    cfg,
-    tx,
-    req_skh,
-    bond_skh,
-    nft_pid,
-    req_pid,
-    spending_request.output_reference,
-  )
+  bond_nft.minting(cfg, ctx.transaction, bond_nft_pid, req_nft_pid)
 }
 
 test succ_when_fulfilling_single_borrow_request_entirely() {
@@ -612,29 +592,22 @@ test succ_when_fulfilling_multiple_borrow_requests_entirely() {
         bond_nft.minting(
           cfg,
           ctx.transaction,
-          req_skh,
-          bond_skh,
-          nft_pid,
-          req_pid,
-          req.output_reference,
+          bond_nft_pid,
+          req_nft_pid,
         ),
         bond_token.minting_without_fee(
           cfg,
           ctx.transaction,
-          req_skh,
-          bond_skh,
-          nft_pid,
-          bond_pid,
-          req.output_reference,
+          req_nft_pid,
+          bond_nft_pid,
+          bond_token_pid,
         ),
         bond_create.spending(
           cfg,
           ctx,
           get_request_datum(req.output),
-          bond_skh,
-          nft_pid,
-          bond_pid,
-          req_pid,
+          bond_nft_pid,
+          bond_token_pid,
         ),
       }
     },
@@ -694,29 +667,22 @@ test succ_when_fulfilling_multiple_borrow_requests_entirely_and_partially() {
         bond_nft.minting(
           cfg,
           ctx.transaction,
-          req_skh,
-          bond_skh,
-          nft_pid,
-          req_pid,
-          req.output_reference,
+          bond_nft_pid,
+          req_nft_pid,
         ),
         bond_token.minting_without_fee(
           cfg,
           ctx.transaction,
-          req_skh,
-          bond_skh,
-          nft_pid,
-          bond_pid,
-          req.output_reference,
+          req_nft_pid,
+          bond_nft_pid,
+          bond_token_pid,
         ),
         bond_create.spending(
           cfg,
           ctx,
           get_request_datum(req.output),
-          bond_skh,
-          nft_pid,
-          bond_pid,
-          req_pid,
+          bond_nft_pid,
+          bond_token_pid,
         ),
       }
     },
@@ -776,29 +742,22 @@ test succ_when_fulfilling_5_borrow_requests() {
         bond_nft.minting(
           cfg,
           ctx.transaction,
-          req_skh,
-          bond_skh,
-          nft_pid,
-          req_pid,
-          req.output_reference,
+          bond_nft_pid,
+          req_nft_pid,
         ),
         bond_token.minting_without_fee(
           cfg,
           ctx.transaction,
-          req_skh,
-          bond_skh,
-          nft_pid,
-          bond_pid,
-          req.output_reference,
+          req_nft_pid,
+          bond_nft_pid,
+          bond_token_pid,
         ),
         bond_create.spending(
           cfg,
           ctx,
           get_request_datum(req.output),
-          bond_skh,
-          nft_pid,
-          bond_pid,
-          req_pid,
+          bond_nft_pid,
+          bond_token_pid,
         ),
       }
     },
@@ -863,29 +822,22 @@ test succ_when_fulfilling_10_borrow_requests() {
         bond_nft.minting(
           cfg,
           ctx.transaction,
-          req_skh,
-          bond_skh,
-          nft_pid,
-          req_pid,
-          req.output_reference,
+          bond_nft_pid,
+          req_nft_pid,
         ),
         bond_token.minting_without_fee(
           cfg,
           ctx.transaction,
-          req_skh,
-          bond_skh,
-          nft_pid,
-          bond_pid,
-          req.output_reference,
+          req_nft_pid,
+          bond_nft_pid,
+          bond_token_pid,
         ),
         bond_create.spending(
           cfg,
           ctx,
           get_request_datum(req.output),
-          bond_skh,
-          nft_pid,
-          bond_pid,
-          req_pid,
+          bond_nft_pid,
+          bond_token_pid,
         ),
       }
     },
@@ -947,7 +899,11 @@ test fail_when_minting_exceeded_bond_nft_quantity() fail {
                ..tx,
                mint: tx.mint
                  |> value.from_minted_value
-                 |> value.add(bond_pid, get_bond_datum(bond_out).token_name, 1)
+                 |> value.add(
+                      bond_token_pid,
+                      get_bond_datum(bond_out).token_name,
+                      1,
+                    )
                  |> value.to_minted_value,
              },
            },
@@ -971,7 +927,11 @@ test fail_when_burning_bond_nft() fail {
                ..tx,
                mint: tx.mint
                  |> value.from_minted_value
-                 |> value.add(nft_pid, get_bond_datum(bond_out).token_name, -2)
+                 |> value.add(
+                      bond_nft_pid,
+                      get_bond_datum(bond_out).token_name,
+                      -2,
+                    )
                  |> value.to_minted_value,
              },
            },
@@ -996,7 +956,7 @@ test fail_when_minting_zero_bond_tokens() {
                mint: tx.mint
                  |> value.from_minted_value
                  |> value_without_token(
-                      bond_pid,
+                      bond_token_pid,
                       get_bond_datum(bond_out).token_name,
                     )
                  |> value.to_minted_value,
@@ -1022,7 +982,11 @@ test fail_when_minting_not_enough_bond_tokens() fail {
                ..tx,
                mint: tx.mint
                  |> value.from_minted_value
-                 |> value.add(bond_pid, get_bond_datum(bond_out).token_name, -1)
+                 |> value.add(
+                      bond_token_pid,
+                      get_bond_datum(bond_out).token_name,
+                      -1,
+                    )
                  |> value.to_minted_value,
              },
            },
@@ -1042,7 +1006,7 @@ test fail_when_minting_not_enough_bond_tokens_name() {
            Output {
              value: value.from_lovelace(123_212)
                |> value.add(
-                    nft_pid,
+                    bond_nft_pid,
                     bytearray.concat(get_bond_datum(bond_out).token_name, "_1"),
                     1,
                   ),
@@ -1071,7 +1035,7 @@ test fail_when_minting_not_enough_bond_tokens_name() {
                value: value.from_lovelace(
                  value.lovelace_of(request_in.output.value),
                )
-                 |> value.add(req_pid, target_name, 1),
+                 |> value.add(req_nft_pid, target_name, 1),
                datum: InlineDatum(RequestDatum { ..dtm, borrower: target_name }),
              },
            }
@@ -1083,7 +1047,7 @@ test fail_when_minting_not_enough_bond_tokens_name() {
                ..tx,
                mint: tx.mint
                  |> value.from_minted_value
-                 |> value.add(nft_pid, target_name, 1)
+                 |> value.add(bond_nft_pid, target_name, 1)
                  |> value.to_minted_value,
                inputs: [lender_in, request_in, request_in_2],
                outputs: [out1, bond_out, bond_out_2, ..rest],
@@ -1109,7 +1073,11 @@ test fail_when_minting_exceeded_bond_tokens() fail {
                ..tx,
                mint: tx.mint
                  |> value.from_minted_value
-                 |> value.add(bond_pid, get_bond_datum(bond_out).token_name, 1)
+                 |> value.add(
+                      bond_token_pid,
+                      get_bond_datum(bond_out).token_name,
+                      1,
+                    )
                  |> value.to_minted_value,
              },
            },
@@ -1134,10 +1102,14 @@ test fail_when_burning_bond_tokens() fail {
                mint: tx.mint
                  |> value.from_minted_value
                  |> value_without_token(
-                      bond_pid,
+                      bond_token_pid,
                       get_bond_datum(bond_out).token_name,
                     )
-                 |> value.add(bond_pid, get_bond_datum(bond_out).token_name, -1)
+                 |> value.add(
+                      bond_token_pid,
+                      get_bond_datum(bond_out).token_name,
+                      -1,
+                    )
                  |> value.to_minted_value,
              },
            },
@@ -1160,7 +1132,7 @@ test fail_when_attempting_other_token_attack_on_nft_policy() {
                ..tx,
                mint: tx.mint
                  |> value.from_minted_value
-                 |> value.add(nft_pid, "calculated-nft", 1)
+                 |> value.add(bond_nft_pid, "calculated-nft", 1)
                  |> value.to_minted_value,
              },
            },
@@ -1183,7 +1155,7 @@ test fail_when_attempting_other_token_attack_on_bond_policy() {
                ..tx,
                mint: tx.mint
                  |> value.from_minted_value
-                 |> value.add(bond_pid, "calculated-bond-name", 1)
+                 |> value.add(bond_token_pid, "calculated-bond-name", 1)
                  |> value.to_minted_value,
              },
            },
@@ -1205,10 +1177,10 @@ test fail_when_attempting_other_redeemer_attack_on_bond_nft_policy() fail {
              transaction: Transaction {
                ..tx,
                redeemers: tx.redeemers
-                 |> dict.delete(Mint(nft_pid))
+                 |> dict.delete(Mint(bond_nft_pid))
                  |> dict.insert(
                       Spend(sreq.output_reference),
-                      BondRedeem { pid: nft_pid },
+                      BondRedeem { pid: bond_nft_pid },
                       script_purpose_compare,
                     ),
              },
@@ -1233,24 +1205,20 @@ test fail_when_attempting_other_redeemer_attack_on_bond_nft_policy() fail {
            string.from_int(list.length(tx.outputs)),
          )
          and {
-           bond_nft.burning_force_redeem(ctx.transaction, nft_pid),
+           bond_nft.burning_force_redeem(ctx.transaction, bond_nft_pid),
            bond_token.minting_without_fee(
              cfg,
              ctx.transaction,
-             req_skh,
-             bond_skh,
-             nft_pid,
-             bond_pid,
-             spending_request.output_reference,
+             req_nft_pid,
+             bond_nft_pid,
+             bond_token_pid,
            ),
            bond_create.spending(
              cfg,
              ctx,
              get_request_datum(spending_request.output),
-             bond_skh,
-             nft_pid,
-             bond_pid,
-             req_pid,
+             bond_nft_pid,
+             bond_token_pid,
            ),
          }
        }
@@ -1269,10 +1237,10 @@ test fail_when_attempting_other_redeemer_attack_on_bond_policy() fail {
              transaction: Transaction {
                ..tx,
                redeemers: tx.redeemers
-                 |> dict.delete(Mint(bond_pid))
+                 |> dict.delete(Mint(bond_token_pid))
                  |> dict.insert(
                       Spend(sreq.output_reference),
-                      BondRedeem { pid: bond_pid },
+                      BondRedeem { pid: bond_token_pid },
                       script_purpose_compare,
                     ),
              },
@@ -1300,21 +1268,16 @@ test fail_when_attempting_other_redeemer_attack_on_bond_policy() fail {
            bond_nft.minting(
              cfg,
              ctx.transaction,
-             req_skh,
-             bond_skh,
-             nft_pid,
-             req_pid,
-             spending_request.output_reference,
+             bond_nft_pid,
+             req_nft_pid,
            ),
-           bond_token.burning_force_redeem(ctx.transaction, bond_pid),
+           bond_token.burning_force_redeem(ctx.transaction, bond_token_pid),
            bond_create.spending(
              cfg,
              ctx,
              get_request_datum(spending_request.output),
-             bond_skh,
-             nft_pid,
-             bond_pid,
-             req_pid,
+             bond_nft_pid,
+             bond_token_pid,
            ),
          }
        }
@@ -1611,7 +1574,7 @@ test fail_when_bond_value_doesnt_hold_bond_nft() {
                  Output {
                    ..bond_out,
                    value: bond_out.value
-                     |> value_without_token(nft_pid, bond.token_name),
+                     |> value_without_token(bond_nft_pid, bond.token_name),
                  },
                  ..rest
                ],

@@ -9,7 +9,7 @@ pub fn spending(
   tx: Transaction,
   sbond: Output,
   sbond_dt: BondDatum,
-  nft_pid: PolicyId,
+  bond_nft_pid: PolicyId,
   borrower_pid: PolicyId,
 ) -> Bool {
   when
@@ -20,7 +20,7 @@ pub fn spending(
       },
     )
   is {
-    Some(_) -> constraint(cfg, tx, sbond, sbond_dt, nft_pid)
+    Some(_) -> constraint(cfg, tx, sbond, sbond_dt, bond_nft_pid)
     _ ->
       fail @"borrow_position/change_stake_key.spending: not found borrower nft of bond utxo"
   }
@@ -31,14 +31,14 @@ pub fn constraint(
   tx: Transaction,
   sbond: Output,
   sbond_dt: BondDatum,
-  nft_pid: PolicyId,
+  bond_nft_pid: PolicyId,
 ) -> Bool {
   when
     list.filter(
       tx.outputs,
       fn(o) {
         o.address.payment_credential == sbond.address.payment_credential && //
-        value.quantity_of(o.value, nft_pid, sbond_dt.token_name) == 1
+        value.quantity_of(o.value, bond_nft_pid, sbond_dt.token_name) == 1
       },
     )
   is {

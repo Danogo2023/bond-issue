@@ -17,9 +17,9 @@ use common/time.{
   relative_epoch_to_posix_time_start,
 }
 
-const nft_pid = "nft_pid"
+const bond_nft_pid = "bond_nft_pid"
 
-const bond_script_hash = "bond_script_hash"
+const bond_skh = "bond_nft_pid"
 
 const ada = 1_000_000
 
@@ -122,14 +122,14 @@ fn get_bond_like(bond_amt: Int, prepaid: Int, seed: ByteArray) {
     value: value.from_lovelace(
       bond_amt * 100 * ada + reward_per_epoch * prepaid,
     )
-      |> value.add(nft_pid, bytearray.concat("bond_name", seed), 1),
-    address: from_script(bond_script_hash)
+      |> value.add(bond_nft_pid, bytearray.concat("bond_name", seed), 1),
+    address: from_script(bond_skh)
       |> with_delegation_key("owner_stake_key"),
     datum: InlineDatum(
       BondDatum {
         epo_rewards: value.from_lovelace(reward_per_epoch),
         duration: 36,
-        bond_symbol: nft_pid,
+        bond_symbol: bond_nft_pid,
         token_name: bytearray.concat("bond_name", seed),
         bond_amount: bond_amt,
         buffer: 5,
@@ -149,7 +149,7 @@ fn with_obond(self: Transaction, descriptor: fn(Output) -> Output) {
       self.outputs,
       fn(output) {
         if
-        output.address.payment_credential == ScriptCredential(bond_script_hash){
+        output.address.payment_credential == ScriptCredential(bond_skh){
         
           descriptor(output)
         } else {
@@ -172,7 +172,7 @@ test succ_when_redeeming_fee_correctly() {
     tx,
     sbond.output,
     get_bond_datum(sbond.output),
-    nft_pid,
+    bond_nft_pid,
     get_default_stake_cred(),
   )
 }
@@ -201,7 +201,7 @@ test succ_when_changing_stake_key_addtionally() {
     tx,
     sbond.output,
     get_bond_datum(sbond.output),
-    nft_pid,
+    bond_nft_pid,
     get_default_stake_cred(),
   )
 }
@@ -225,7 +225,7 @@ test fail_when_redeeming_fee_before_maturity() {
     },
     sbond.output,
     get_bond_datum(sbond.output),
-    nft_pid,
+    bond_nft_pid,
     get_default_stake_cred(),
   )
 }
@@ -253,7 +253,7 @@ test fail_when_setting_incorrect_bond_symbol() {
     tx,
     sbond.output,
     get_bond_datum(sbond.output),
-    nft_pid,
+    bond_nft_pid,
     get_default_stake_cred(),
   )
 }
@@ -281,7 +281,7 @@ test fail_when_setting_incorrect_token_name() {
     tx,
     sbond.output,
     get_bond_datum(sbond.output),
-    nft_pid,
+    bond_nft_pid,
     get_default_stake_cred(),
   )
 }
@@ -309,7 +309,7 @@ test fail_when_setting_incorrect_borrower() {
     tx,
     sbond.output,
     get_bond_datum(sbond.output),
-    nft_pid,
+    bond_nft_pid,
     get_default_stake_cred(),
   )
 }
@@ -342,7 +342,7 @@ test fail_when_setting_lower_epo_rewards() {
     tx,
     sbond.output,
     get_bond_datum(sbond.output),
-    nft_pid,
+    bond_nft_pid,
     get_default_stake_cred(),
   )
 }
@@ -375,7 +375,7 @@ test fail_when_setting_higher_epo_rewards() {
     tx,
     sbond.output,
     get_bond_datum(sbond.output),
-    nft_pid,
+    bond_nft_pid,
     get_default_stake_cred(),
   )
 }
@@ -404,7 +404,7 @@ test fail_when_setting_lower_duration() {
     tx,
     sbond.output,
     get_bond_datum(sbond.output),
-    nft_pid,
+    bond_nft_pid,
     get_default_stake_cred(),
   )
 }
@@ -433,7 +433,7 @@ test fail_when_setting_higher_duration() {
     tx,
     sbond.output,
     get_bond_datum(sbond.output),
-    nft_pid,
+    bond_nft_pid,
     get_default_stake_cred(),
   )
 }
@@ -462,7 +462,7 @@ test fail_when_setting_lower_bond_amount() {
     tx,
     sbond.output,
     get_bond_datum(sbond.output),
-    nft_pid,
+    bond_nft_pid,
     get_default_stake_cred(),
   )
 }
@@ -491,7 +491,7 @@ test fail_when_setting_higher_bond_amount() {
     tx,
     sbond.output,
     get_bond_datum(sbond.output),
-    nft_pid,
+    bond_nft_pid,
     get_default_stake_cred(),
   )
 }
@@ -518,7 +518,7 @@ test fail_when_setting_lower_buffer() {
     tx,
     sbond.output,
     get_bond_datum(sbond.output),
-    nft_pid,
+    bond_nft_pid,
     get_default_stake_cred(),
   )
 }
@@ -545,7 +545,7 @@ test fail_when_setting_higher_buffer() {
     tx,
     sbond.output,
     get_bond_datum(sbond.output),
-    nft_pid,
+    bond_nft_pid,
     get_default_stake_cred(),
   )
 }
@@ -572,7 +572,7 @@ test fail_when_setting_lower_start() {
     tx,
     sbond.output,
     get_bond_datum(sbond.output),
-    nft_pid,
+    bond_nft_pid,
     get_default_stake_cred(),
   )
 }
@@ -599,7 +599,7 @@ test fail_when_setting_higher_start() {
     tx,
     sbond.output,
     get_bond_datum(sbond.output),
-    nft_pid,
+    bond_nft_pid,
     get_default_stake_cred(),
   )
 }
@@ -627,7 +627,7 @@ test fail_when_setting_negative_fee() {
     tx,
     sbond.output,
     get_bond_datum(sbond.output),
-    nft_pid,
+    bond_nft_pid,
     get_default_stake_cred(),
   )
 }
@@ -655,7 +655,7 @@ test fail_when_setting_positive_fee() {
     tx,
     sbond.output,
     get_bond_datum(sbond.output),
-    nft_pid,
+    bond_nft_pid,
     get_default_stake_cred(),
   )
 }
@@ -683,7 +683,7 @@ test fail_when_setting_incorrect_continuous_value() {
     tx,
     sbond.output,
     get_bond_datum(sbond.output),
-    nft_pid,
+    bond_nft_pid,
     get_default_stake_cred(),
   )
 }
@@ -714,7 +714,7 @@ test fail_when_setting_incorrect_bond_stake_key() {
     tx,
     sbond.output,
     get_bond_datum(sbond.output),
-    nft_pid,
+    bond_nft_pid,
     get_default_stake_cred(),
   )
 }
@@ -740,7 +740,7 @@ test fail_when_setting_bond_stake_key_to_none() {
     tx,
     sbond.output,
     get_bond_datum(sbond.output),
-    nft_pid,
+    bond_nft_pid,
     get_default_stake_cred(),
   )
 }
@@ -812,7 +812,7 @@ test fail_when_attempting_multiple_bonds_satisfaction() fail {
       tx,
       sbond1.output,
       get_bond_datum(sbond1.output),
-      nft_pid,
+      bond_nft_pid,
       get_default_stake_cred(),
     ),
     redeem_fee.spending(
@@ -820,7 +820,7 @@ test fail_when_attempting_multiple_bonds_satisfaction() fail {
       tx,
       sbond2.output,
       get_bond_datum(sbond2.output),
-      nft_pid,
+      bond_nft_pid,
       get_default_stake_cred(),
     ),
   }

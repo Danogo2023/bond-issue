@@ -8,14 +8,14 @@ pub fn spending_without_fee(
   tx: Transaction,
   sbond: Output,
   sbond_dt: BondDatum,
-  nft_pid: PolicyId,
+  bond_nft_pid: PolicyId,
 ) -> Bool {
   when
     list.filter(
       tx.outputs,
       fn(o) {
         o.address == sbond.address && //
-        value.quantity_of(o.value, nft_pid, sbond_dt.token_name) == 1
+        value.quantity_of(o.value, bond_nft_pid, sbond_dt.token_name) == 1
       },
     )
   is {
