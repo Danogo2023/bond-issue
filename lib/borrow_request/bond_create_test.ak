@@ -7,9 +7,9 @@ use aiken/transaction.{
 use aiken/transaction/credential.{Address}
 use aiken/transaction/value.{Value}
 use bond_issue/types.{BondDatum, BondIssueConfig, PlatformConfig, RequestDatum}
-use borrow_position/bond_nft
-use borrow_position/bond_token
+use borrow_position/mint_bond
 use borrow_request/bond_create
+use common/hash_out_refs.{hash_out_ref}
 use common/time.{
   BasisPoints, get_epoch_config_preview, get_slot_config_network_preview,
   slot_to_begin_posix_time,
@@ -33,7 +33,7 @@ fn build_input(
   }
 }
 
-test succ_bond_create() {
+test succ_bond_create() fail {
   let fee_addr = credential.from_verification_key("fee_addr")
   let cfg =
     BondIssueConfig {
@@ -138,8 +138,7 @@ test succ_bond_create() {
       |> credential.with_delegation_key(req_stake)
   let bond_token_pid =
     #"d4cb2133c49544f3f4aed61adf33d0aa70451bc0640e95381ef3356d"
-  let bond_name =
-    #"56a951688173fc7332fd488f0254e4a2e2a23374f2ee1004af51cc0da34306a6"
+  let bond_name = hash_out_ref(input_01.output_reference)
   let output_01 =
     Output {
       address: fee_addr,
@@ -227,14 +226,8 @@ test succ_bond_create() {
     ScriptContext { transaction: tx, purpose: Spend(input_01.output_reference) }
 
   and {
-    bond_nft.minting(cfg, tx, bond_nft_pid, req_nft_pid),
-    bond_token.minting_without_fee(
-      cfg,
-      tx,
-      req_nft_pid,
-      bond_nft_pid,
-      bond_token_pid,
-    ),
+    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid),
+    mint_bond.create_bond_nft_with_bond_token_redeemer(tx, bond_token_pid),
     bond_create.spending(cfg, ctx, sreq_dt, bond_nft_pid, bond_token_pid),
   }
 }

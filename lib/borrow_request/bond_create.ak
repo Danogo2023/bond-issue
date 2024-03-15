@@ -8,9 +8,9 @@ use aiken/transaction/credential.{Address, PaymentCredential, ScriptCredential}
 use aiken/transaction/value.{AssetName, MintedValue, PolicyId}
 use bond_issue/types.{BondDatum, BondIssueConfig, RequestDatum}
 use borrow_request/types.{BondCreateOutput} as borrow_request_types
-use common/hash_out_refs.{hash_out_ref_salt}
+use common/hash_out_refs.{hash_out_ref}
 use common/time.{get_current_epoch_with_ttl}
-use issue_bond/utils.{check_output_request_base, bond_asset_valid}
+use issue_bond/utils.{bond_asset_valid, check_output_request_base}
 
 pub fn spending(
   cfg: BondIssueConfig,
@@ -39,8 +39,7 @@ pub fn spending(
       if
       (value.quantity_of(sreq.output.value, req_nft_pid, sreq_dt.borrower) == 1)?{
       
-        let bond_name =
-          hash_out_ref_salt(sreq.output_reference, sreq_dt.borrower)
+        let bond_name = hash_out_ref(sreq.output_reference)
         when
           get_create_output(
             cfg,
@@ -197,7 +196,7 @@ fn tx_mint_valid(
   oreq_found: Bool,
 ) -> Bool {
   dict.foldr(
-    value.to_dict(value.from_minted_value(tx_mint)),
+    value.from_minted_value(tx_mint) |> value.to_dict(),
     True,
     fn(k, v, z) {
       if k == bond_nft_pid || k == req_nft_pid || k == obond_dt.bond_symbol {

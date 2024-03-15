@@ -11,15 +11,13 @@ use aiken/transaction.{
 use aiken/transaction/credential
 use aiken/transaction/value.{PolicyId, Value}
 use bond_issue/types.{BondDatum, BondIssueConfig, PlatformConfig, RequestDatum}
-use borrow_position/bond_nft
-use borrow_position/bond_token
+use borrow_position/mint_bond
 use borrow_request/bond_create
-use common/hash_out_refs.{hash_out_ref_salt}
+use common/hash_out_refs.{hash_out_ref}
 use common/time.{
   BasisPoints, get_current_epoch, get_epoch_config_mainnet,
   get_slot_config_network_mainnet,
 }
-use common/types.{ScriptKeyHash} as common_types
 use issue_bond/types.{BondCreate, BondRedeem} as issue_bond_types
 
 // ===============Params==============
@@ -234,7 +232,7 @@ fn fulfill_borrow_request(request: Input, lend_amt: LendAmount) {
     prepaid,
     ..
   } = get_request_datum(request.output)
-  let token_name = hash_out_ref_salt(request.output_reference, borrower)
+  let token_name = hash_out_ref(request.output_reference)
   let bond_amount = resolve_lend_amount(lend_amt, requested, issued)
   let current_epoch = get_current_epoch(get_tx_validity_range(), cfg.epoch)
   let start = current_epoch - cfg.epoch.epoch_boundary_as_epoch
@@ -301,12 +299,6 @@ fn build_fee_output(fee: Int) {
   }
 }
 
-type MintingRedeemer {
-  out_ref: OutputReference,
-  req_skh: ScriptKeyHash,
-  pid: PolicyId,
-}
-
 fn with_expected_redeemers(
   self: Dict<ScriptPurpose, Redeemer>,
   spending_request: Input,
@@ -314,29 +306,11 @@ fn with_expected_redeemers(
   self
     |> dict.insert(
          Spend(spending_request.output_reference),
-         BondCreate {
-           req_nft_pid
-         },
+         BondCreate,
          script_purpose_compare,
        )
-    |> dict.insert(
-         Mint(bond_nft_pid),
-         MintingRedeemer {
-           out_ref: spending_request.output_reference,
-           req_skh,
-           pid: bond_nft_pid,
-         },
-         script_purpose_compare,
-       )
-    |> dict.insert(
-         Mint(bond_token_pid),
-         MintingRedeemer {
-           out_ref: spending_request.output_reference,
-           req_skh,
-           pid: bond_token_pid,
-         },
-         script_purpose_compare,
-       )
+    |> dict.insert(Mint(bond_nft_pid), BondCreate, script_purpose_compare)
+    |> dict.insert(Mint(bond_token_pid), BondCreate, script_purpose_compare)
 }
 
 type FulfillmentState {
@@ -509,14 +483,8 @@ fn validate(args: (Input, ScriptContext)) {
     string.from_int(list.length(tx.outputs)),
   )
   and {
-    bond_nft.minting(cfg, ctx.transaction, bond_nft_pid, req_nft_pid),
-    bond_token.minting_without_fee(
-      cfg,
-      tx,
-      req_nft_pid,
-      bond_nft_pid,
-      bond_token_pid,
-    ),
+    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid),
+    mint_bond.create_bond_nft_with_bond_token_redeemer(tx, bond_token_pid),
     bond_create.spending(
       cfg,
       ctx,
@@ -544,7 +512,10 @@ fn validate_bond_nft_minting(args: (Input, ScriptContext)) {
     @"count outputs: ",
     string.from_int(list.length(tx.outputs)),
   )
-  bond_nft.minting(cfg, ctx.transaction, bond_nft_pid, req_nft_pid)
+  and {
+    mint_bond.create(cfg, ctx.transaction, bond_nft_pid, bond_token_pid),
+    mint_bond.create_bond_nft_with_bond_token_redeemer(tx, bond_token_pid),
+  }
 }
 
 test succ_when_fulfilling_single_borrow_request_entirely() {
@@ -586,19 +557,8 @@ test succ_when_fulfilling_multiple_borrow_requests_entirely() {
         string.from_int(list.length(tx.outputs)),
       )
       and {
-        bond_nft.minting(
-          cfg,
-          ctx.transaction,
-          bond_nft_pid,
-          req_nft_pid,
-        ),
-        bond_token.minting_without_fee(
-          cfg,
-          ctx.transaction,
-          req_nft_pid,
-          bond_nft_pid,
-          bond_token_pid,
-        ),
+        mint_bond.create(cfg, ctx.transaction, bond_nft_pid, bond_token_pid),
+        mint_bond.create_bond_nft_with_bond_token_redeemer(tx, bond_token_pid),
         bond_create.spending(
           cfg,
           ctx,
@@ -661,19 +621,8 @@ test succ_when_fulfilling_multiple_borrow_requests_entirely_and_partially() {
         string.from_int(list.length(tx.outputs)),
       )
       and {
-        bond_nft.minting(
-          cfg,
-          ctx.transaction,
-          bond_nft_pid,
-          req_nft_pid,
-        ),
-        bond_token.minting_without_fee(
-          cfg,
-          ctx.transaction,
-          req_nft_pid,
-          bond_nft_pid,
-          bond_token_pid,
-        ),
+        mint_bond.create(cfg, ctx.transaction, bond_nft_pid, bond_token_pid),
+        mint_bond.create_bond_nft_with_bond_token_redeemer(tx, bond_token_pid),
         bond_create.spending(
           cfg,
           ctx,
@@ -736,19 +685,8 @@ test succ_when_fulfilling_5_borrow_requests() {
       let ctx =
         ScriptContext { purpose: Spend(req.output_reference), transaction: tx }
       and {
-        bond_nft.minting(
-          cfg,
-          ctx.transaction,
-          bond_nft_pid,
-          req_nft_pid,
-        ),
-        bond_token.minting_without_fee(
-          cfg,
-          ctx.transaction,
-          req_nft_pid,
-          bond_nft_pid,
-          bond_token_pid,
-        ),
+        mint_bond.create(cfg, ctx.transaction, bond_nft_pid, bond_token_pid),
+        mint_bond.create_bond_nft_with_bond_token_redeemer(tx, bond_token_pid),
         bond_create.spending(
           cfg,
           ctx,
@@ -816,19 +754,8 @@ test succ_when_fulfilling_10_borrow_requests() {
       let ctx =
         ScriptContext { purpose: Spend(req.output_reference), transaction: tx }
       and {
-        bond_nft.minting(
-          cfg,
-          ctx.transaction,
-          bond_nft_pid,
-          req_nft_pid,
-        ),
-        bond_token.minting_without_fee(
-          cfg,
-          ctx.transaction,
-          req_nft_pid,
-          bond_nft_pid,
-          bond_token_pid,
-        ),
+        mint_bond.create(cfg, ctx.transaction, bond_nft_pid, bond_token_pid),
+        mint_bond.create_bond_nft_with_bond_token_redeemer(tx, bond_token_pid),
         bond_create.spending(
           cfg,
           ctx,
@@ -1162,7 +1089,7 @@ test fail_when_attempting_other_token_attack_on_bond_policy() {
     |> not
 }
 
-test fail_when_attempting_other_redeemer_attack_on_bond_nft_policy() fail {
+test fail_when_attempting_other_redeemer_attack_on_bond_nft_policy() {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
          let (sreq, ctx) = args
@@ -1202,12 +1129,13 @@ test fail_when_attempting_other_redeemer_attack_on_bond_nft_policy() fail {
            string.from_int(list.length(tx.outputs)),
          )
          and {
-           bond_nft.burning_force_redeem(ctx.transaction, bond_nft_pid),
-           bond_token.minting_without_fee(
-             cfg,
+           mint_bond.burn_bond_nft_with_bond_token_redeemer(
              ctx.transaction,
-             req_nft_pid,
-             bond_nft_pid,
+             bond_token_pid,
+           ),
+           mint_bond.create(cfg, ctx.transaction, bond_nft_pid, bond_token_pid),
+           mint_bond.create_bond_nft_with_bond_token_redeemer(
+             tx,
              bond_token_pid,
            ),
            bond_create.spending(
@@ -1262,13 +1190,16 @@ test fail_when_attempting_other_redeemer_attack_on_bond_policy() fail {
            string.from_int(list.length(tx.outputs)),
          )
          and {
-           bond_nft.minting(
-             cfg,
+           mint_bond.create(cfg, ctx.transaction, bond_nft_pid, bond_token_pid),
+           mint_bond.create_bond_nft_with_bond_token_redeemer(
+             tx,
+             bond_token_pid,
+           ),
+           mint_bond.burn_bond_token(
              ctx.transaction,
              bond_nft_pid,
-             req_nft_pid,
+             bond_token_pid,
            ),
-           bond_token.burning_force_redeem(ctx.transaction, bond_token_pid),
            bond_create.spending(
              cfg,
              ctx,
@@ -1423,7 +1354,7 @@ test fail_when_setting_bond_buffer_lower() {
     |> not
 }
 
-test fail_when_setting_bond_buffer_higher() {
+test fail_when_setting_bond_buffer_higher() fail {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
          let (sreq, ctx) = args
@@ -1486,7 +1417,7 @@ test fail_when_setting_bond_fee_higher() {
     |> not
 }
 
-test fail_when_setting_bond_borrower_incorrect() fail {
+test fail_when_setting_bond_borrower_incorrect() {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
          let (sreq, ctx) = args
