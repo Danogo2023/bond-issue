@@ -7,18 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.0.4] - 2024-03-07
-
-### Added
+### 1.0.4 [2024-03-14]
 
 - Restrict that all tokens names under the borrower_nft or borrow_request_nft policy must be hashed by a spending out ref
 - Implement new redeemer borrower_nft::RequestUpdate to allow burning borrower nft
+- Support minting bonds without requiring spend borrow requests
+- Implement protocol params as a reference input
 
-## [1.0.3] - 2024-01-30
+### 1.0.3 [2024-01-30]
 
 This is the first documented and supported implementation. It contains some main points:
-
-### Added
 
 - borrow_request: Add `request_nft` 
 - borrow_request: Add `borrower_nft` 

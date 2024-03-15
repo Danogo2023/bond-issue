@@ -1,13 +1,38 @@
 use aiken/dict
 use aiken/list
 use aiken/math
-use aiken/option
 use aiken/transaction.{Input, Output, Transaction}
 use aiken/transaction/credential.{ScriptCredential, VerificationKeyCredential}
 use aiken/transaction/value.{AssetName, PolicyId}
 use bond_issue/types.{BondDatum, BondIssueConfig, RequestDatum}
+use common/hash_out_refs.{hash_out_ref}
 use common/time.{get_current_epoch_with_ttl}
 use common/types.{Lovelace} as common_types
+
+pub fn burn_nft(tx: Transaction, pid: PolicyId) -> Bool {
+  let burn_names = get_burn_nft_names(tx, pid)
+  (list.length(burn_names) > 0)?
+}
+
+pub fn mint_nft(tx: Transaction, pid: PolicyId) -> Bool {
+  let nft_name_avaiable =
+    list.map(tx.inputs, fn(i) { hash_out_ref(i.output_reference) })
+
+  let nft_mint = value.tokens(value.from_minted_value(tx.mint), pid)
+  let nft_mint_valid =
+    dict.foldr(
+      nft_mint,
+      0,
+      fn(n, q, z) {
+        if list.has(nft_name_avaiable, n)? && (q == 1)? {
+          z + 1
+        } else {
+          fail @"must mint only one"
+        }
+      },
+    )
+  (dict.size(nft_mint) == nft_mint_valid)?
+}
 
 pub fn get_burn_token_names(tx: Transaction, pid: PolicyId) -> List<AssetName> {
   dict.foldr(
@@ -139,33 +164,30 @@ pub fn bond_closable(
   }
 }
 
+fn fail_if_false(predicate: Bool, msg: String) {
+  if !predicate {
+    fail msg
+  } else {
+    True
+  }
+}
+
 pub fn bond_asset_valid(
   bond_nft_pid: PolicyId,
   obond_dt: BondDatum,
   obond: Output,
   obond_paid: Int,
 ) -> Bool {
-  dict.foldr(
-    value.to_dict(obond.value),
-    True,
-    fn(k, v, z) {
-      if k == value.ada_policy_id || k == bond_nft_pid {
-        if
-        k == value.ada_policy_id && (
-          dict.get(v, value.ada_asset_name) |> option.or_else(0)
-        ) < obond_paid{
-        
-          fail @"lovelace qty of bond ouput invalid"
-        } else if k == bond_nft_pid && (
-          dict.get(v, obond_dt.token_name) |> option.or_else(0)
-        ) != 1 {
-          fail @"bond nft qty of bond ouput invalid"
-        } else {
-          z
-        }
-      } else {
-        z
-      }
-    },
-  )
+  let ada_qty = value.lovelace_of(obond.value)
+  let bond_nft_qty =
+    value.quantity_of(obond.value, bond_nft_pid, obond_dt.token_name)
+  and {
+    fail_if_false(ada_qty >= obond_paid, @"lovelace qty of bond ouput invalid"),
+    fail_if_false(bond_nft_qty == 1, @"bond nft qty of bond ouput invalid"),
+  }
+}
+
+pub fn log(self: a, serializer: fn(a) -> String) -> a {
+  trace serializer(self)
+  self
 }

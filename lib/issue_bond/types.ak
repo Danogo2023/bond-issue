@@ -1,9 +1,7 @@
-use aiken/transaction/value.{PolicyId}
-
 pub type BondIssueAction {
-  RequestCreate { req_nft_pid: PolicyId }
+  RequestCreate
   RequestUpdate
-  BondCreate { req_nft_pid: PolicyId }
+  BondCreate
   BondRedeem
   BondPayInterest
   BondChangeStakeKey

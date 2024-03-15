@@ -6,26 +6,11 @@ use aiken/transaction/credential.{ScriptCredential}
 use aiken/transaction/value.{PolicyId}
 use bond_issue/types.{BondIssueConfig, RequestDatum} as bond_issue_types
 use common/hash_out_refs.{hash_out_ref}
-use common/types.{ScriptKeyHash} as common_types
 use issue_bond/utils.{
   check_output_request_base, get_burn_nft_names, get_output_by_nft_names,
 }
 
-pub fn burning_bond_create(
-  tx: Transaction,
-  _bond_skh: ScriptKeyHash,
-  req_nft_pid: PolicyId,
-  _borrower_pid: PolicyId,
-) -> Bool {
-  // let req_pk = ScriptCredential(req_nft_pid)
-  burning_valid(tx, req_nft_pid)
-}
-
-pub fn burning_request_update(tx: Transaction, req_nft_pid: PolicyId) -> Bool {
-  burning_valid(tx, req_nft_pid)
-}
-
-fn burning_valid(tx: Transaction, req_nft_pid: PolicyId) -> Bool {
+pub fn burning_valid(tx: Transaction, req_nft_pid: PolicyId) -> Bool {
   let burn_names = get_burn_nft_names(tx, req_nft_pid)
   let oreq = get_output_by_nft_names(tx, burn_names, req_nft_pid)
   and {
@@ -41,7 +26,7 @@ pub fn minting(
   borrower_pid: PolicyId,
 ) -> Bool {
   let req_nft_name_valids =
-    list.map(tx.inputs, fn(inp) { hash_out_ref(inp.output_reference) })
+    list.map(tx.inputs, fn(i) { hash_out_ref(i.output_reference) })
   let req_nft_mint = value.tokens(value.from_minted_value(tx.mint), req_nft_pid)
   let (req_nft_name_mint_valid, req_nft_name_mint_valid_count) =
     dict.foldr(

@@ -12,13 +12,12 @@ use aiken/transaction/credential.{Address, Inline, VerificationKeyCredential}
 use aiken/transaction/value.{PolicyId}
 use bond_issue/types.{BondDatum,
   BondIssueConfig, PlatformConfig} as bond_issue_types
-use borrow_position/bond_nft
-use borrow_position/bond_token
+use borrow_position/mint_bond
 use borrow_position/redeem_bond
 use common/time.{
   BasisPoints, get_epoch_config_mainnet, get_slot_config_network_mainnet,
 }
-use issue_bond/types.{BondRedeem} as issue_bond_types
+use issue_bond/types.{BondRedeem, RedeemFee} as issue_bond_types
 
 const ada = 1_000_000
 
@@ -232,16 +231,8 @@ fn build_tx(redeem_type: RedeemType) {
            BondRedeem,
            script_purpose_compare,
          )
-      |> dict.insert(
-           Mint(bond_nft_pid),
-           BondRedeem,
-           script_purpose_compare,
-         )
-      |> dict.insert(
-           Mint(bond_token_pid),
-           BondRedeem,
-           script_purpose_compare,
-         )
+      |> dict.insert(Mint(bond_nft_pid), BondRedeem, script_purpose_compare)
+      |> dict.insert(Mint(bond_token_pid), BondRedeem, script_purpose_compare)
   let tx =
     Transaction {
       ..t,
@@ -267,7 +258,7 @@ test succ_when_redeeming_1_bond() {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
     True,
   }
 }
@@ -283,8 +274,8 @@ test succ_when_redeeming_all_bonds() {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_nft.burning_bond_redeem(tx, bond_nft_pid),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_nft_with_bond_token_redeemer(tx, bond_token_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
   }
 }
 
@@ -309,7 +300,7 @@ test fail_when_burning_not_enough_bond_tokens_if_redeeming_partially() {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
     True,
   } |> not
 }
@@ -334,8 +325,8 @@ test fail_when_burning_not_enough_bond_tokens_if_redeeming_all() {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_nft.burning_bond_redeem(tx, bond_nft_pid),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_nft_with_bond_token_redeemer(tx, bond_token_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
     True,
   } |> not
 }
@@ -384,7 +375,7 @@ test fail_when_doesnt_burn_bond_tokens_if_redeeming_all() {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_nft.burning_bond_redeem(tx, bond_nft_pid),
+    mint_bond.burn_bond_nft_with_bond_token_redeemer(tx, bond_token_pid),
     True,
   } |> not
 }
@@ -409,7 +400,7 @@ test fail_when_doesnt_burn_bond_nft_if_redeeming_all() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
     True,
   } |> not
 }
@@ -441,8 +432,8 @@ test fail_when_burning_bond_nft_if_redeeming_partially() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_nft.burning_bond_redeem(tx, bond_nft_pid),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_nft_with_bond_token_redeemer(tx, bond_token_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
     True,
   } |> not
 }
@@ -483,7 +474,7 @@ test fail_when_setting_lower_epo_rewards() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
     True,
   } |> not
 }
@@ -523,7 +514,7 @@ test fail_when_setting_higher_epo_rewards() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
     True,
   } |> not
 }
@@ -563,7 +554,7 @@ test fail_when_attempting_unbounded_value_attack_on_epo_rewards() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
     True,
   } |> not
 }
@@ -595,7 +586,7 @@ test fail_when_setting_lower_duration() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
     True,
   } |> not
 }
@@ -627,7 +618,7 @@ test fail_when_setting_higher_duration() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
     True,
   } |> not
 }
@@ -659,7 +650,7 @@ test fail_when_setting_incorrect_bond_symbol() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
     True,
   } |> not
 }
@@ -691,7 +682,7 @@ test fail_when_setting_incorrect_token_name() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
     True,
   } |> not
 }
@@ -726,7 +717,7 @@ test fail_when_setting_lower_bond_amount() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
     True,
   } |> not
 }
@@ -761,7 +752,7 @@ test fail_when_setting_higher_bond_amount() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
     True,
   } |> not
 }
@@ -793,7 +784,7 @@ test fail_when_setting_lower_buffer() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
     True,
   } |> not
 }
@@ -825,7 +816,7 @@ test fail_when_setting_higher_buffer() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
     True,
   } |> not
 }
@@ -855,7 +846,7 @@ test fail_when_setting_lower_fee() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
     True,
   } |> not
 }
@@ -885,7 +876,7 @@ test fail_when_setting_higher_fee() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
     True,
   } |> not
 }
@@ -917,7 +908,7 @@ test fail_when_setting_incorrect_borrower() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
     True,
   } |> not
 }
@@ -949,7 +940,7 @@ test fail_when_setting_lower_start() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
     True,
   } |> not
 }
@@ -981,7 +972,7 @@ test fail_when_setting_higher_start() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
     True,
   } |> not
 }
@@ -1009,7 +1000,7 @@ test fail_when_bond_out_hasnt_nft() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
     True,
   } |> not
 }
@@ -1038,7 +1029,7 @@ test fail_when_bond_out_has_incorrect_nft_policy() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
     True,
   } |> not
 }
@@ -1058,7 +1049,7 @@ test fail_when_removing_bond_when_claiming_partially() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
     True,
   } |> not
 }
@@ -1087,8 +1078,8 @@ test fail_when_paying_lower_fee() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_nft.burning_bond_redeem(tx, bond_nft_pid),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_nft_with_bond_token_redeemer(tx, bond_token_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
   } |> not
 }
 
@@ -1117,8 +1108,8 @@ test fail_when_doesnt_pay_fee() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_nft.burning_bond_redeem(tx, bond_nft_pid),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_nft_with_bond_token_redeemer(tx, bond_token_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
   } |> not
 }
 
@@ -1148,8 +1139,8 @@ test fail_when_doesnt_pay_fee_for_protocol() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_nft.burning_bond_redeem(tx, bond_nft_pid),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_nft_with_bond_token_redeemer(tx, bond_token_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
   } |> not
 }
 
@@ -1194,7 +1185,11 @@ test fail_when_batching_bonds() fail {
                  output: Output {
                    ..lender_in.output,
                    value: value.from_lovelace(12 * ada)
-                     |> value.add(bond_token_pid, bond_2_name, bond_2_datum.bond_amount),
+                     |> value.add(
+                          bond_token_pid,
+                          bond_2_name,
+                          bond_2_datum.bond_amount,
+                        ),
                  },
                }
              let bond_2_outs =
@@ -1209,8 +1204,8 @@ test fail_when_batching_bonds() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_nft.burning_bond_redeem(tx, bond_nft_pid),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_nft_with_bond_token_redeemer(tx, bond_token_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
   } |> not
 }
 
@@ -1236,8 +1231,8 @@ test succ_when_lender_redeems_early_due_to_interest_buffer_violation() {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_nft.burning_bond_redeem(tx, bond_nft_pid),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_nft_with_bond_token_redeemer(tx, bond_token_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
   }
 }
 
@@ -1259,8 +1254,8 @@ test succ_when_lender_redeems_after_maturity() {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_nft.burning_bond_redeem(tx, bond_nft_pid),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_nft_with_bond_token_redeemer(tx, bond_token_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
   }
 }
 
@@ -1286,8 +1281,8 @@ test fail_when_lender_redeems_early_but_borrower_paid_for_buffer() {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_nft.burning_bond_redeem(tx, bond_nft_pid),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_nft_with_bond_token_redeemer(tx, bond_token_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
   } |> not
 }
 
@@ -1313,8 +1308,8 @@ test fail_when_changing_bond_stake_key() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_nft.burning_bond_redeem(tx, bond_nft_pid),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_nft_with_bond_token_redeemer(tx, bond_token_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
   } |> not
 }
 
@@ -1340,8 +1335,8 @@ test fail_when_removing_bond_stake_key() fail {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_nft.burning_bond_redeem(tx, bond_nft_pid),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_nft_with_bond_token_redeemer(tx, bond_token_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
   } |> not
 }
 
@@ -1379,6 +1374,28 @@ test succ_on_large_inputs_and_outputs() {
       get_bond_datum(sbond),
       bond_nft_pid,
     ),
-    bond_token.burning_bond_redeem(tx, bond_token_pid, bond_nft_pid),
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
+  }
+}
+
+// The redeemer of spending bond escrow is not BondRedeem, but another
+// Redeemer that break the expected rules
+test fail_when_attempt_other_redeemer_attack_on_spend_bond() fail {
+  let (t, _) = build_tx(RedeemPartially(1))
+  expect [sbond, ..] = t.inputs
+  let tx =
+    Transaction {
+      ..t,
+      redeemers: t.redeemers
+        |> dict.delete(Spend(sbond.output_reference))
+        |> dict.insert(
+             Spend(sbond.output_reference),
+             RedeemFee,
+             script_purpose_compare,
+           ),
+    }
+  and {
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
+    True,
   }
 }
