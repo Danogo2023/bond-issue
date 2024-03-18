@@ -12,6 +12,7 @@ use aiken/transaction/value.{PolicyId}
 use bond_issue/types.{BondDatum,
   BondIssueConfig, PlatformConfig} as bond_issue_types
 use borrow_position/pay_interest
+use common/pvalue
 use common/time.{
   BasisPoints, get_epoch_config_mainnet, get_slot_config_network_mainnet,
 }
@@ -99,22 +100,22 @@ fn build_tx(bonds: List<(Input, List<Output>)>) {
   let (inputs, outputs, redeemers) =
     bonds
       |> list.reduce(
-           ([], [], t.redeemers),
-           fn(results, descriptor) {
-             let (inputs, outputs, redeemers) = results
-             let (sbond, obonds) = descriptor
-             (
-               [sbond, ..inputs],
-               outputs |> list.concat(obonds),
-               redeemers
-                 |> dict.insert(
-                      Spend(sbond.output_reference),
-                      BondPayInterest,
-                      script_purpose_compare,
-                    ),
-             )
-           },
-         )
+          ([], [], t.redeemers),
+          fn(results, descriptor) {
+            let (inputs, outputs, redeemers) = results
+            let (sbond, obonds) = descriptor
+            (
+              [sbond, ..inputs],
+              outputs |> list.concat(obonds),
+              redeemers
+                |> dict.insert(
+                    Spend(sbond.output_reference),
+                    BondPayInterest,
+                    script_purpose_compare,
+                  ),
+            )
+          },
+        )
   (
     Transaction {
       ..transaction.placeholder(),
@@ -141,7 +142,8 @@ fn validate(output_modifier: fn(Output) -> Output) {
   let bond_datum =
     BondDatum {
       epo_rewards: value.from_lovelace(1_000_000_000)
-        |> value.add("bond_symbol_1", "bond_name_1", 1),
+        |> value.add("bond_symbol_1", "bond_name_1", 1)
+        |> pvalue.from_value,
       bond_symbol: "bond_symbol_1",
       token_name: "bond_name_1",
       bond_amount: 100,
@@ -164,15 +166,16 @@ fn validate(output_modifier: fn(Output) -> Output) {
           [
             sbond.output
               |> fn(out) {
-                   let datum = get_bond_datum(out)
-                   let interest_per_epoch = value.lovelace_of(datum.epo_rewards)
-                   out
-                     |> add_asset(
-                          value.ada_policy_id,
-                          value.ada_asset_name,
-                          interest_per_epoch,
-                        )
-                 }
+                  let datum = get_bond_datum(out)
+                  let interest_per_epoch =
+                    value.lovelace_of(datum.epo_rewards |> pvalue.to_value)
+                  out
+                    |> add_asset(
+                        value.ada_policy_id,
+                        value.ada_asset_name,
+                        interest_per_epoch,
+                      )
+                }
               |> output_modifier,
           ],
         ),
@@ -196,10 +199,12 @@ test succ_when_paying_interest_for_2_epoch() {
     fn(obond) {
       obond
         |> add_asset(
-             value.ada_policy_id,
-             value.ada_asset_name,
-             value.lovelace_of(get_bond_datum(obond).epo_rewards),
-           )
+            value.ada_policy_id,
+            value.ada_asset_name,
+            value.lovelace_of(
+              get_bond_datum(obond).epo_rewards |> pvalue.to_value,
+            ),
+          )
     },
   )
 }
@@ -208,13 +213,14 @@ test succ_when_paying_all_interest() {
   validate(
     fn(obond) {
       let datum = get_bond_datum(obond)
-      let interest_per_epoch = value.lovelace_of(datum.epo_rewards)
+      let interest_per_epoch =
+        value.lovelace_of(datum.epo_rewards |> pvalue.to_value)
       obond
         |> add_asset(
-             value.ada_policy_id,
-             value.ada_asset_name,
-             interest_per_epoch * ( datum.duration - 1 ),
-           )
+            value.ada_policy_id,
+            value.ada_asset_name,
+            interest_per_epoch * ( datum.duration - 1 ),
+          )
     },
   )
 }
@@ -262,14 +268,16 @@ test fail_when_setting_incorrect_epo_rewards_ada() {
     fn(obond) {
       obond
         |> set_bond_datum(
-             fn(datum) {
-               BondDatum {
-                 ..datum,
-                 epo_rewards: datum.epo_rewards
-                   |> value.add(value.ada_policy_id, value.ada_asset_name, -1),
-               }
-             },
-           )
+            fn(datum) {
+              BondDatum {
+                ..datum,
+                epo_rewards: datum.epo_rewards
+                  |> pvalue.to_value
+                  |> value.add(value.ada_policy_id, value.ada_asset_name, -1)
+                  |> pvalue.from_value,
+              }
+            },
+          )
     },
   )
 }
@@ -279,8 +287,8 @@ test fail_when_setting_lower_duration() {
     fn(obond) {
       obond
         |> set_bond_datum(
-             fn(datum) { BondDatum { ..datum, duration: datum.duration - 1 } },
-           )
+            fn(datum) { BondDatum { ..datum, duration: datum.duration - 1 } },
+          )
     },
   )
 }
@@ -290,8 +298,8 @@ test fail_when_setting_higher_duration() {
     fn(obond) {
       obond
         |> set_bond_datum(
-             fn(datum) { BondDatum { ..datum, duration: datum.duration + 1 } },
-           )
+            fn(datum) { BondDatum { ..datum, duration: datum.duration + 1 } },
+          )
     },
   )
 }
@@ -301,8 +309,8 @@ test fail_when_setting_incorrect_bond_symbol() {
     fn(obond) {
       obond
         |> set_bond_datum(
-             fn(datum) { BondDatum { ..datum, bond_symbol: "other_symbol" } },
-           )
+            fn(datum) { BondDatum { ..datum, bond_symbol: "other_symbol" } },
+          )
     },
   )
 }
@@ -312,8 +320,8 @@ test fail_when_setting_incorrect_token_name() {
     fn(obond) {
       obond
         |> set_bond_datum(
-             fn(datum) { BondDatum { ..datum, token_name: "other_name" } },
-           )
+            fn(datum) { BondDatum { ..datum, token_name: "other_name" } },
+          )
     },
   )
 }
@@ -323,10 +331,10 @@ test fail_when_setting_lower_bond_amount() {
     fn(obond) {
       obond
         |> set_bond_datum(
-             fn(datum) {
-               BondDatum { ..datum, bond_amount: datum.bond_amount - 1 }
-             },
-           )
+            fn(datum) {
+              BondDatum { ..datum, bond_amount: datum.bond_amount - 1 }
+            },
+          )
     },
   )
 }
@@ -336,10 +344,10 @@ test fail_when_setting_higher_bond_amount() {
     fn(obond) {
       obond
         |> set_bond_datum(
-             fn(datum) {
-               BondDatum { ..datum, bond_amount: datum.bond_amount + 1 }
-             },
-           )
+            fn(datum) {
+              BondDatum { ..datum, bond_amount: datum.bond_amount + 1 }
+            },
+          )
     },
   )
 }
@@ -349,8 +357,8 @@ test fail_when_setting_lower_buffer() {
     fn(obond) {
       obond
         |> set_bond_datum(
-             fn(datum) { BondDatum { ..datum, buffer: datum.buffer - 1 } },
-           )
+            fn(datum) { BondDatum { ..datum, buffer: datum.buffer - 1 } },
+          )
     },
   )
 }
@@ -360,8 +368,8 @@ test fail_when_setting_higher_buffer() {
     fn(obond) {
       obond
         |> set_bond_datum(
-             fn(datum) { BondDatum { ..datum, buffer: datum.buffer + 1 } },
-           )
+            fn(datum) { BondDatum { ..datum, buffer: datum.buffer + 1 } },
+          )
     },
   )
 }
@@ -398,8 +406,8 @@ test fail_when_setting_lower_start() {
     fn(obond) {
       obond
         |> set_bond_datum(
-             fn(datum) { BondDatum { ..datum, start: datum.start - 1 } },
-           )
+            fn(datum) { BondDatum { ..datum, start: datum.start - 1 } },
+          )
     },
   )
 }
@@ -409,8 +417,8 @@ test fail_when_setting_higher_start() {
     fn(obond) {
       obond
         |> set_bond_datum(
-             fn(datum) { BondDatum { ..datum, start: datum.start + 1 } },
-           )
+            fn(datum) { BondDatum { ..datum, start: datum.start + 1 } },
+          )
     },
   )
 }

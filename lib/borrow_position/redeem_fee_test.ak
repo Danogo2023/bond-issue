@@ -12,6 +12,7 @@ use aiken/transaction/credential.{
 use aiken/transaction/value.{ada_asset_name, ada_policy_id}
 use bond_issue/types.{BondDatum, BondIssueConfig, PlatformConfig}
 use borrow_position/redeem_fee
+use common/pvalue
 use common/time.{
   BasisPoints, get_epoch_config_mainnet, get_slot_config_network_mainnet,
   relative_epoch_to_posix_time_start,
@@ -127,7 +128,7 @@ fn get_bond_like(bond_amt: Int, prepaid: Int, seed: ByteArray) {
       |> with_delegation_key("owner_stake_key"),
     datum: InlineDatum(
       BondDatum {
-        epo_rewards: value.from_lovelace(reward_per_epoch),
+        epo_rewards: value.from_lovelace(reward_per_epoch) |> pvalue.from_value,
         duration: 36,
         bond_symbol: bond_nft_pid,
         token_name: bytearray.concat("bond_name", seed),
@@ -148,9 +149,7 @@ fn with_obond(self: Transaction, descriptor: fn(Output) -> Output) {
     outputs: list.map(
       self.outputs,
       fn(output) {
-        if
-        output.address.payment_credential == ScriptCredential(bond_skh){
-        
+        if output.address.payment_credential == ScriptCredential(bond_skh) {
           descriptor(output)
         } else {
           output
@@ -186,16 +185,16 @@ test succ_when_changing_stake_key_addtionally() {
   let tx =
     build_tx(sbond)
       |> with_obond(
-           fn(obond) {
-             Output {
-               ..obond,
-               address: Address {
-                 ..obond.address,
-                 stake_credential: Some(get_default_stake_cred()),
-               },
-             }
-           },
-         )
+          fn(obond) {
+            Output {
+              ..obond,
+              address: Address {
+                ..obond.address,
+                stake_credential: Some(get_default_stake_cred()),
+              },
+            }
+          },
+        )
   redeem_fee.spending(
     build_cfg(),
     tx,
@@ -239,15 +238,15 @@ test fail_when_setting_incorrect_bond_symbol() {
   let tx =
     build_tx(sbond)
       |> with_obond(
-           fn(obond) {
-             Output {
-               ..obond,
-               datum: InlineDatum(
-                 BondDatum { ..get_bond_datum(obond), bond_symbol: "unknown" },
-               ),
-             }
-           },
-         )
+          fn(obond) {
+            Output {
+              ..obond,
+              datum: InlineDatum(
+                BondDatum { ..get_bond_datum(obond), bond_symbol: "unknown" },
+              ),
+            }
+          },
+        )
   !redeem_fee.spending(
     build_cfg(),
     tx,
@@ -267,15 +266,15 @@ test fail_when_setting_incorrect_token_name() {
   let tx =
     build_tx(sbond)
       |> with_obond(
-           fn(obond) {
-             Output {
-               ..obond,
-               datum: InlineDatum(
-                 BondDatum { ..get_bond_datum(obond), token_name: "unknown" },
-               ),
-             }
-           },
-         )
+          fn(obond) {
+            Output {
+              ..obond,
+              datum: InlineDatum(
+                BondDatum { ..get_bond_datum(obond), token_name: "unknown" },
+              ),
+            }
+          },
+        )
   !redeem_fee.spending(
     build_cfg(),
     tx,
@@ -295,15 +294,15 @@ test fail_when_setting_incorrect_borrower() {
   let tx =
     build_tx(sbond)
       |> with_obond(
-           fn(obond) {
-             Output {
-               ..obond,
-               datum: InlineDatum(
-                 BondDatum { ..get_bond_datum(obond), borrower: "unknown" },
-               ),
-             }
-           },
-         )
+          fn(obond) {
+            Output {
+              ..obond,
+              datum: InlineDatum(
+                BondDatum { ..get_bond_datum(obond), borrower: "unknown" },
+              ),
+            }
+          },
+        )
   !redeem_fee.spending(
     build_cfg(),
     tx,
@@ -323,20 +322,22 @@ test fail_when_setting_lower_epo_rewards() {
   let tx =
     build_tx(sbond)
       |> with_obond(
-           fn(obond) {
-             let dtm = get_bond_datum(obond)
-             Output {
-               ..obond,
-               datum: InlineDatum(
-                 BondDatum {
-                   ..dtm,
-                   epo_rewards: dtm.epo_rewards
-                     |> value.add(ada_policy_id, ada_asset_name, -1),
-                 },
-               ),
-             }
-           },
-         )
+          fn(obond) {
+            let dtm = get_bond_datum(obond)
+            Output {
+              ..obond,
+              datum: InlineDatum(
+                BondDatum {
+                  ..dtm,
+                  epo_rewards: dtm.epo_rewards
+                    |> pvalue.to_value
+                    |> value.add(ada_policy_id, ada_asset_name, -1)
+                    |> pvalue.from_value,
+                },
+              ),
+            }
+          },
+        )
   !redeem_fee.spending(
     build_cfg(),
     tx,
@@ -356,20 +357,22 @@ test fail_when_setting_higher_epo_rewards() {
   let tx =
     build_tx(sbond)
       |> with_obond(
-           fn(obond) {
-             let dtm = get_bond_datum(obond)
-             Output {
-               ..obond,
-               datum: InlineDatum(
-                 BondDatum {
-                   ..dtm,
-                   epo_rewards: dtm.epo_rewards
-                     |> value.add(ada_policy_id, ada_asset_name, 1),
-                 },
-               ),
-             }
-           },
-         )
+          fn(obond) {
+            let dtm = get_bond_datum(obond)
+            Output {
+              ..obond,
+              datum: InlineDatum(
+                BondDatum {
+                  ..dtm,
+                  epo_rewards: dtm.epo_rewards
+                    |> pvalue.to_value
+                    |> value.add(ada_policy_id, ada_asset_name, 1)
+                    |> pvalue.from_value,
+                },
+              ),
+            }
+          },
+        )
   !redeem_fee.spending(
     build_cfg(),
     tx,
@@ -389,16 +392,16 @@ test fail_when_setting_lower_duration() {
   let tx =
     build_tx(sbond)
       |> with_obond(
-           fn(obond) {
-             let dtm = get_bond_datum(obond)
-             Output {
-               ..obond,
-               datum: InlineDatum(
-                 BondDatum { ..dtm, duration: dtm.duration - 1 },
-               ),
-             }
-           },
-         )
+          fn(obond) {
+            let dtm = get_bond_datum(obond)
+            Output {
+              ..obond,
+              datum: InlineDatum(
+                BondDatum { ..dtm, duration: dtm.duration - 1 },
+              ),
+            }
+          },
+        )
   !redeem_fee.spending(
     build_cfg(),
     tx,
@@ -418,16 +421,16 @@ test fail_when_setting_higher_duration() {
   let tx =
     build_tx(sbond)
       |> with_obond(
-           fn(obond) {
-             let dtm = get_bond_datum(obond)
-             Output {
-               ..obond,
-               datum: InlineDatum(
-                 BondDatum { ..dtm, duration: dtm.duration + 1 },
-               ),
-             }
-           },
-         )
+          fn(obond) {
+            let dtm = get_bond_datum(obond)
+            Output {
+              ..obond,
+              datum: InlineDatum(
+                BondDatum { ..dtm, duration: dtm.duration + 1 },
+              ),
+            }
+          },
+        )
   !redeem_fee.spending(
     build_cfg(),
     tx,
@@ -447,16 +450,16 @@ test fail_when_setting_lower_bond_amount() {
   let tx =
     build_tx(sbond)
       |> with_obond(
-           fn(obond) {
-             let dtm = get_bond_datum(obond)
-             Output {
-               ..obond,
-               datum: InlineDatum(
-                 BondDatum { ..dtm, bond_amount: dtm.bond_amount - 1 },
-               ),
-             }
-           },
-         )
+          fn(obond) {
+            let dtm = get_bond_datum(obond)
+            Output {
+              ..obond,
+              datum: InlineDatum(
+                BondDatum { ..dtm, bond_amount: dtm.bond_amount - 1 },
+              ),
+            }
+          },
+        )
   !redeem_fee.spending(
     build_cfg(),
     tx,
@@ -476,16 +479,16 @@ test fail_when_setting_higher_bond_amount() {
   let tx =
     build_tx(sbond)
       |> with_obond(
-           fn(obond) {
-             let dtm = get_bond_datum(obond)
-             Output {
-               ..obond,
-               datum: InlineDatum(
-                 BondDatum { ..dtm, bond_amount: dtm.bond_amount + 1 },
-               ),
-             }
-           },
-         )
+          fn(obond) {
+            let dtm = get_bond_datum(obond)
+            Output {
+              ..obond,
+              datum: InlineDatum(
+                BondDatum { ..dtm, bond_amount: dtm.bond_amount + 1 },
+              ),
+            }
+          },
+        )
   !redeem_fee.spending(
     build_cfg(),
     tx,
@@ -505,14 +508,14 @@ test fail_when_setting_lower_buffer() {
   let tx =
     build_tx(sbond)
       |> with_obond(
-           fn(obond) {
-             let dtm = get_bond_datum(obond)
-             Output {
-               ..obond,
-               datum: InlineDatum(BondDatum { ..dtm, buffer: dtm.buffer - 1 }),
-             }
-           },
-         )
+          fn(obond) {
+            let dtm = get_bond_datum(obond)
+            Output {
+              ..obond,
+              datum: InlineDatum(BondDatum { ..dtm, buffer: dtm.buffer - 1 }),
+            }
+          },
+        )
   !redeem_fee.spending(
     build_cfg(),
     tx,
@@ -532,14 +535,14 @@ test fail_when_setting_higher_buffer() {
   let tx =
     build_tx(sbond)
       |> with_obond(
-           fn(obond) {
-             let dtm = get_bond_datum(obond)
-             Output {
-               ..obond,
-               datum: InlineDatum(BondDatum { ..dtm, buffer: dtm.buffer + 1 }),
-             }
-           },
-         )
+          fn(obond) {
+            let dtm = get_bond_datum(obond)
+            Output {
+              ..obond,
+              datum: InlineDatum(BondDatum { ..dtm, buffer: dtm.buffer + 1 }),
+            }
+          },
+        )
   !redeem_fee.spending(
     build_cfg(),
     tx,
@@ -559,14 +562,14 @@ test fail_when_setting_lower_start() {
   let tx =
     build_tx(sbond)
       |> with_obond(
-           fn(obond) {
-             let dtm = get_bond_datum(obond)
-             Output {
-               ..obond,
-               datum: InlineDatum(BondDatum { ..dtm, start: dtm.start - 1 }),
-             }
-           },
-         )
+          fn(obond) {
+            let dtm = get_bond_datum(obond)
+            Output {
+              ..obond,
+              datum: InlineDatum(BondDatum { ..dtm, start: dtm.start - 1 }),
+            }
+          },
+        )
   !redeem_fee.spending(
     build_cfg(),
     tx,
@@ -586,14 +589,14 @@ test fail_when_setting_higher_start() {
   let tx =
     build_tx(sbond)
       |> with_obond(
-           fn(obond) {
-             let dtm = get_bond_datum(obond)
-             Output {
-               ..obond,
-               datum: InlineDatum(BondDatum { ..dtm, start: dtm.start + 1 }),
-             }
-           },
-         )
+          fn(obond) {
+            let dtm = get_bond_datum(obond)
+            Output {
+              ..obond,
+              datum: InlineDatum(BondDatum { ..dtm, start: dtm.start + 1 }),
+            }
+          },
+        )
   !redeem_fee.spending(
     build_cfg(),
     tx,
@@ -613,14 +616,14 @@ test fail_when_setting_negative_fee() {
   let tx =
     build_tx(sbond)
       |> with_obond(
-           fn(obond) {
-             let dtm = get_bond_datum(obond)
-             Output {
-               ..obond,
-               datum: InlineDatum(BondDatum { ..dtm, fee: dtm.fee - 1 }),
-             }
-           },
-         )
+          fn(obond) {
+            let dtm = get_bond_datum(obond)
+            Output {
+              ..obond,
+              datum: InlineDatum(BondDatum { ..dtm, fee: dtm.fee - 1 }),
+            }
+          },
+        )
 
   !redeem_fee.spending(
     build_cfg(),
@@ -641,14 +644,14 @@ test fail_when_setting_positive_fee() {
   let tx =
     build_tx(sbond)
       |> with_obond(
-           fn(obond) {
-             let dtm = get_bond_datum(obond)
-             Output {
-               ..obond,
-               datum: InlineDatum(BondDatum { ..dtm, fee: dtm.fee + 1 }),
-             }
-           },
-         )
+          fn(obond) {
+            let dtm = get_bond_datum(obond)
+            Output {
+              ..obond,
+              datum: InlineDatum(BondDatum { ..dtm, fee: dtm.fee + 1 }),
+            }
+          },
+        )
 
   !redeem_fee.spending(
     build_cfg(),
@@ -669,14 +672,14 @@ test fail_when_setting_incorrect_continuous_value() {
   let tx =
     build_tx(sbond)
       |> with_obond(
-           fn(obond) {
-             Output {
-               ..obond,
-               value: obond.value
-                 |> value.add(ada_policy_id, ada_asset_name, -1),
-             }
-           },
-         )
+          fn(obond) {
+            Output {
+              ..obond,
+              value: obond.value
+                |> value.add(ada_policy_id, ada_asset_name, -1),
+            }
+          },
+        )
 
   !redeem_fee.spending(
     build_cfg(),
@@ -697,18 +700,18 @@ test fail_when_setting_incorrect_bond_stake_key() {
   let tx =
     build_tx(sbond)
       |> with_obond(
-           fn(obond) {
-             Output {
-               ..obond,
-               address: Address {
-                 ..obond.address,
-                 stake_credential: Some(
-                   Inline(VerificationKeyCredential("unkown")),
-                 ),
-               },
-             }
-           },
-         )
+          fn(obond) {
+            Output {
+              ..obond,
+              address: Address {
+                ..obond.address,
+                stake_credential: Some(
+                  Inline(VerificationKeyCredential("unkown")),
+                ),
+              },
+            }
+          },
+        )
   !redeem_fee.spending(
     build_cfg(),
     tx,
@@ -728,13 +731,13 @@ test fail_when_setting_bond_stake_key_to_none() {
   let tx =
     build_tx(sbond)
       |> with_obond(
-           fn(obond) {
-             Output {
-               ..obond,
-               address: Address { ..obond.address, stake_credential: None },
-             }
-           },
-         )
+          fn(obond) {
+            Output {
+              ..obond,
+              address: Address { ..obond.address, stake_credential: None },
+            }
+          },
+        )
   !redeem_fee.spending(
     build_cfg(),
     tx,

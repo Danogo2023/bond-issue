@@ -8,6 +8,7 @@ use aiken/transaction/credential.{ScriptCredential}
 use aiken/transaction/value.{AssetName, PolicyId}
 use bond_issue/types.{BondDatum, BondIssueConfig}
 use common/hash_out_refs.{hash_out_ref}
+use common/pvalue
 use common/time.{get_current_epoch_with_ttl}
 use issue_bond/types.{BondCreate,
   BondIssueAction, BondRedeem} as issue_bond_types
@@ -267,7 +268,7 @@ pub fn create(
                     let obond_principal =
                       obond_dt.bond_amount * cfg.platform.bond_face_value
                     let required_premium =
-                      value.lovelace_of(obond_dt.epo_rewards) * math.min(
+                      value.lovelace_of(pvalue.to_value(obond_dt.epo_rewards)) * math.min(
                         obond_dt.buffer + cfg.platform.prepaid_plus,
                         obond_dt.duration,
                       )

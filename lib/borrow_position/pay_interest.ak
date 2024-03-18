@@ -2,6 +2,7 @@ use aiken/list
 use aiken/transaction.{InlineDatum, Output, Transaction}
 use aiken/transaction/value.{PolicyId}
 use bond_issue/types.{BondDatum, BondIssueConfig} as bond_issue_types
+use common/pvalue
 
 pub fn spending_without_fee(
   cfg: BondIssueConfig,
@@ -35,7 +36,8 @@ pub fn spending_without_fee(
         (value.lovelace_of(sbond.value), value.lovelace_of(obond.value))
 
       let interest = obond_balance - sbond_balance
-      let interest_min = value.lovelace_of(sbond_dt.epo_rewards)
+      let interest_min =
+        value.lovelace_of(pvalue.to_value(sbond_dt.epo_rewards))
 
       let sbond_principal = sbond_dt.bond_amount * cfg.platform.bond_face_value
       let sbond_interest_paid = sbond_balance - sbond_principal

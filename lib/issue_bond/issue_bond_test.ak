@@ -14,6 +14,7 @@ use bond_issue/types.{BondDatum, BondIssueConfig, PlatformConfig, RequestDatum}
 use borrow_position/mint_bond
 use borrow_request/bond_create
 use common/hash_out_refs.{hash_out_ref}
+use common/pvalue
 use common/time.{
   BasisPoints, get_current_epoch, get_epoch_config_mainnet,
   get_slot_config_network_mainnet,
@@ -254,7 +255,7 @@ fn fulfill_borrow_request(request: Input, lend_amt: LendAmount) {
       value: locked_value,
       datum: InlineDatum(
         BondDatum {
-          epo_rewards: epo_rewards_assets,
+          epo_rewards: pvalue.from_value(epo_rewards_assets),
           duration,
           bond_symbol: bond_token_pid,
           token_name,
@@ -286,7 +287,7 @@ fn fulfill_borrow_request(request: Input, lend_amt: LendAmount) {
 
 fn calc_fee(bond: BondDatum, request: RequestDatum) {
   let cfg = build_cfg()
-  value.lovelace_of(bond.epo_rewards) * request.prepaid * request.fee / cfg.basis.base
+  value.lovelace_of(bond.epo_rewards |> pvalue.to_value) * request.prepaid * request.fee / cfg.basis.base
 }
 
 fn build_fee_output(fee: Int) {
@@ -305,10 +306,10 @@ fn with_expected_redeemers(
 ) {
   self
     |> dict.insert(
-         Spend(spending_request.output_reference),
-         BondCreate,
-         script_purpose_compare,
-       )
+        Spend(spending_request.output_reference),
+        BondCreate,
+        script_purpose_compare,
+      )
     |> dict.insert(Mint(bond_nft_pid), BondCreate, script_purpose_compare)
     |> dict.insert(Mint(bond_token_pid), BondCreate, script_purpose_compare)
 }
@@ -381,13 +382,13 @@ fn build_tx(request: FulfillmentState, lend_amount: LendAmount) {
         inputs: [lender_in, request_in],
         outputs: [lender_out, bond_out, fee_out]
           |> list.concat(
-               when remain_request is {
-                 None ->
-                   []
-                 Some(r) ->
-                   [r]
-               },
-             ),
+              when remain_request is {
+                None ->
+                  []
+                Some(r) ->
+                  [r]
+              },
+            ),
         mint: mint,
       },
     },
@@ -403,53 +404,53 @@ fn build_multi_requests_tx(
   let (inputs, outputs, minted, redeemers) =
     requests
       |> list.indexed_foldr(
-           ([], [], value.zero(), t.redeemers),
-           fn(idx, req, acc) {
-             let (fulfillment_state, lend_amt, requested, apr) = req
-             let (inputs, outputs, minted, redeemers) = acc
-             let request_in =
-               Input {
-                 ..resolve_spending_request(
-                   fulfillment_state,
-                   "borrower-"
-                     |> bytearray.concat(
-                          bytearray.from_string(idx |> string.from_int),
-                        ),
-                   requested,
-                   apr,
-                 ),
-                 output_reference: OutputReference(
-                   TransactionId("request_tx"),
-                   idx,
-                 ),
-               }
-             let (bond_out, remain_request) =
-               fulfill_borrow_request(request_in, lend_amt)
-             let bond_datum = get_bond_datum(bond_out)
-             (
-               inputs |> list.concat([request_in]),
-               outputs
-                 |> list.concat([bond_out])
-                 |> list.concat(
-                      when remain_request is {
-                        None ->
-                          []
-                        Some(r) ->
-                          [r]
-                      },
-                    ),
-               minted
-                 |> value.add(bond_nft_pid, bond_datum.token_name, 1)
-                 |> value.add(
-                      bond_token_pid,
-                      bond_datum.token_name,
-                      bond_datum.bond_amount,
-                    ),
-               redeemers
-                 |> with_expected_redeemers(request_in),
-             )
-           },
-         )
+          ([], [], value.zero(), t.redeemers),
+          fn(idx, req, acc) {
+            let (fulfillment_state, lend_amt, requested, apr) = req
+            let (inputs, outputs, minted, redeemers) = acc
+            let request_in =
+              Input {
+                ..resolve_spending_request(
+                  fulfillment_state,
+                  "borrower-"
+                    |> bytearray.concat(
+                        bytearray.from_string(idx |> string.from_int),
+                      ),
+                  requested,
+                  apr,
+                ),
+                output_reference: OutputReference(
+                  TransactionId("request_tx"),
+                  idx,
+                ),
+              }
+            let (bond_out, remain_request) =
+              fulfill_borrow_request(request_in, lend_amt)
+            let bond_datum = get_bond_datum(bond_out)
+            (
+              inputs |> list.concat([request_in]),
+              outputs
+                |> list.concat([bond_out])
+                |> list.concat(
+                    when remain_request is {
+                      None ->
+                        []
+                      Some(r) ->
+                        [r]
+                    },
+                  ),
+              minted
+                |> value.add(bond_nft_pid, bond_datum.token_name, 1)
+                |> value.add(
+                    bond_token_pid,
+                    bond_datum.token_name,
+                    bond_datum.bond_amount,
+                  ),
+              redeemers
+                |> with_expected_redeemers(request_in),
+            )
+          },
+        )
   (
     inputs,
     Transaction {
@@ -812,27 +813,27 @@ test succ_when_fulfilling_the_rest_borrow_request_partially() {
 test fail_when_minting_exceeded_bond_nft_quantity() fail {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [_, bond_out, ..] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               mint: tx.mint
-                 |> value.from_minted_value
-                 |> value.add(
-                      bond_token_pid,
-                      get_bond_datum(bond_out).token_name,
-                      1,
-                    )
-                 |> value.to_minted_value,
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [_, bond_out, ..] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              mint: tx.mint
+                |> value.from_minted_value
+                |> value.add(
+                    bond_token_pid,
+                    get_bond_datum(bond_out).token_name,
+                    1,
+                  )
+                |> value.to_minted_value,
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -840,27 +841,23 @@ test fail_when_minting_exceeded_bond_nft_quantity() fail {
 test fail_when_burning_bond_nft() fail {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [_, bond_out, ..] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               mint: tx.mint
-                 |> value.from_minted_value
-                 |> value.add(
-                      bond_nft_pid,
-                      get_bond_datum(bond_out).token_name,
-                      -2,
-                    )
-                 |> value.to_minted_value,
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [_, bond_out, ..] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              mint: tx.mint
+                |> value.from_minted_value
+                |> value.add(bond_nft_pid, get_bond_datum(bond_out).token_name, -2)
+                |> value.to_minted_value,
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -868,26 +865,26 @@ test fail_when_burning_bond_nft() fail {
 test fail_when_minting_zero_bond_tokens() {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [_, bond_out, ..] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               mint: tx.mint
-                 |> value.from_minted_value
-                 |> value_without_token(
-                      bond_token_pid,
-                      get_bond_datum(bond_out).token_name,
-                    )
-                 |> value.to_minted_value,
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [_, bond_out, ..] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              mint: tx.mint
+                |> value.from_minted_value
+                |> value_without_token(
+                    bond_token_pid,
+                    get_bond_datum(bond_out).token_name,
+                  )
+                |> value.to_minted_value,
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -895,27 +892,27 @@ test fail_when_minting_zero_bond_tokens() {
 test fail_when_minting_not_enough_bond_tokens() fail {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [_, bond_out, ..] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               mint: tx.mint
-                 |> value.from_minted_value
-                 |> value.add(
-                      bond_token_pid,
-                      get_bond_datum(bond_out).token_name,
-                      -1,
-                    )
-                 |> value.to_minted_value,
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [_, bond_out, ..] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              mint: tx.mint
+                |> value.from_minted_value
+                |> value.add(
+                    bond_token_pid,
+                    get_bond_datum(bond_out).token_name,
+                    -1,
+                  )
+                |> value.to_minted_value,
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -923,62 +920,62 @@ test fail_when_minting_not_enough_bond_tokens() fail {
 test fail_when_minting_not_enough_bond_tokens_name() {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [out1, bond_out, ..rest] = tx.outputs
-         let bond_out_2 =
-           Output {
-             value: value.from_lovelace(123_212)
-               |> value.add(
-                    bond_nft_pid,
-                    bytearray.concat(get_bond_datum(bond_out).token_name, "_1"),
-                    1,
-                  ),
-             address: bond_out.address,
-             datum: InlineDatum(
-               BondDatum {
-                 ..get_bond_datum(bond_out),
-                 token_name: bytearray.concat(
-                   get_bond_datum(bond_out).token_name,
-                   "_1",
-                 ),
-               },
-             ),
-             reference_script: None,
-           }
-         expect [lender_in, request_in] = tx.inputs
-         let target_name =
-           bytearray.concat(get_bond_datum(bond_out).token_name, "_1")
-         expect InlineDatum(inl_dtm) = request_in.output.datum
-         expect dtm: RequestDatum = inl_dtm
-         let request_in_2 =
-           Input {
-             output_reference: OutputReference(TransactionId("tx_222"), 1),
-             output: Output {
-               ..request_in.output,
-               value: value.from_lovelace(
-                 value.lovelace_of(request_in.output.value),
-               )
-                 |> value.add(req_nft_pid, target_name, 1),
-               datum: InlineDatum(RequestDatum { ..dtm, borrower: target_name }),
-             },
-           }
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               mint: tx.mint
-                 |> value.from_minted_value
-                 |> value.add(bond_nft_pid, target_name, 1)
-                 |> value.to_minted_value,
-               inputs: [lender_in, request_in, request_in_2],
-               outputs: [out1, bond_out, bond_out_2, ..rest],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [out1, bond_out, ..rest] = tx.outputs
+        let bond_out_2 =
+          Output {
+            value: value.from_lovelace(123_212)
+              |> value.add(
+                  bond_nft_pid,
+                  bytearray.concat(get_bond_datum(bond_out).token_name, "_1"),
+                  1,
+                ),
+            address: bond_out.address,
+            datum: InlineDatum(
+              BondDatum {
+                ..get_bond_datum(bond_out),
+                token_name: bytearray.concat(
+                  get_bond_datum(bond_out).token_name,
+                  "_1",
+                ),
+              },
+            ),
+            reference_script: None,
+          }
+        expect [lender_in, request_in] = tx.inputs
+        let target_name =
+          bytearray.concat(get_bond_datum(bond_out).token_name, "_1")
+        expect InlineDatum(inl_dtm) = request_in.output.datum
+        expect dtm: RequestDatum = inl_dtm
+        let request_in_2 =
+          Input {
+            output_reference: OutputReference(TransactionId("tx_222"), 1),
+            output: Output {
+              ..request_in.output,
+              value: value.from_lovelace(
+                value.lovelace_of(request_in.output.value),
+              )
+                |> value.add(req_nft_pid, target_name, 1),
+              datum: InlineDatum(RequestDatum { ..dtm, borrower: target_name }),
+            },
+          }
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              mint: tx.mint
+                |> value.from_minted_value
+                |> value.add(bond_nft_pid, target_name, 1)
+                |> value.to_minted_value,
+              inputs: [lender_in, request_in, request_in_2],
+              outputs: [out1, bond_out, bond_out_2, ..rest],
+            },
+          },
+        )
+      }
     |> validate_bond_nft_minting
     |> not
 }
@@ -986,27 +983,27 @@ test fail_when_minting_not_enough_bond_tokens_name() {
 test fail_when_minting_exceeded_bond_tokens() fail {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [_, bond_out, ..] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               mint: tx.mint
-                 |> value.from_minted_value
-                 |> value.add(
-                      bond_token_pid,
-                      get_bond_datum(bond_out).token_name,
-                      1,
-                    )
-                 |> value.to_minted_value,
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [_, bond_out, ..] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              mint: tx.mint
+                |> value.from_minted_value
+                |> value.add(
+                    bond_token_pid,
+                    get_bond_datum(bond_out).token_name,
+                    1,
+                  )
+                |> value.to_minted_value,
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1014,31 +1011,31 @@ test fail_when_minting_exceeded_bond_tokens() fail {
 test fail_when_burning_bond_tokens() fail {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [_, bond_out, ..] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               mint: tx.mint
-                 |> value.from_minted_value
-                 |> value_without_token(
-                      bond_token_pid,
-                      get_bond_datum(bond_out).token_name,
-                    )
-                 |> value.add(
-                      bond_token_pid,
-                      get_bond_datum(bond_out).token_name,
-                      -1,
-                    )
-                 |> value.to_minted_value,
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [_, bond_out, ..] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              mint: tx.mint
+                |> value.from_minted_value
+                |> value_without_token(
+                    bond_token_pid,
+                    get_bond_datum(bond_out).token_name,
+                  )
+                |> value.add(
+                    bond_token_pid,
+                    get_bond_datum(bond_out).token_name,
+                    -1,
+                  )
+                |> value.to_minted_value,
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1046,22 +1043,22 @@ test fail_when_burning_bond_tokens() fail {
 test fail_when_attempting_other_token_attack_on_nft_policy() {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               mint: tx.mint
-                 |> value.from_minted_value
-                 |> value.add(bond_nft_pid, "calculated-nft", 1)
-                 |> value.to_minted_value,
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              mint: tx.mint
+                |> value.from_minted_value
+                |> value.add(bond_nft_pid, "calculated-nft", 1)
+                |> value.to_minted_value,
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1069,22 +1066,22 @@ test fail_when_attempting_other_token_attack_on_nft_policy() {
 test fail_when_attempting_other_token_attack_on_bond_policy() {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               mint: tx.mint
-                 |> value.from_minted_value
-                 |> value.add(bond_token_pid, "calculated-bond-name", 1)
-                 |> value.to_minted_value,
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              mint: tx.mint
+                |> value.from_minted_value
+                |> value.add(bond_token_pid, "calculated-bond-name", 1)
+                |> value.to_minted_value,
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1092,123 +1089,117 @@ test fail_when_attempting_other_token_attack_on_bond_policy() {
 test fail_when_attempting_other_redeemer_attack_on_bond_nft_policy() {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               redeemers: tx.redeemers
-                 |> dict.delete(Mint(bond_nft_pid))
-                 |> dict.insert(
-                      Spend(sreq.output_reference),
-                      BondRedeem,
-                      script_purpose_compare,
-                    ),
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              redeemers: tx.redeemers
+                |> dict.delete(Mint(bond_nft_pid))
+                |> dict.insert(
+                    Spend(sreq.output_reference),
+                    BondRedeem,
+                    script_purpose_compare,
+                  ),
+            },
+          },
+        )
+      }
     |> fn(args: (Input, ScriptContext)) {
-         let cfg = build_cfg()
-         let (spending_request, ctx) = args
-         let tx = ctx.transaction
-         trace @"==================="
-         trace string.concat(
-           @"count inputs: ",
-           string.from_int(list.length(tx.inputs)),
-         )
-         trace string.concat(
-           @"count reference_inputs: ",
-           string.from_int(list.length(tx.reference_inputs)),
-         )
-         trace string.concat(
-           @"count outputs: ",
-           string.from_int(list.length(tx.outputs)),
-         )
-         and {
-           mint_bond.burn_bond_nft_with_bond_token_redeemer(
-             ctx.transaction,
-             bond_token_pid,
-           ),
-           mint_bond.create(cfg, ctx.transaction, bond_nft_pid, bond_token_pid),
-           mint_bond.create_bond_nft_with_bond_token_redeemer(
-             tx,
-             bond_token_pid,
-           ),
-           bond_create.spending(
-             cfg,
-             ctx,
-             get_request_datum(spending_request.output),
-             bond_nft_pid,
-             bond_token_pid,
-           ),
-         }
-       }
+        let cfg = build_cfg()
+        let (spending_request, ctx) = args
+        let tx = ctx.transaction
+        trace @"==================="
+        trace string.concat(
+          @"count inputs: ",
+          string.from_int(list.length(tx.inputs)),
+        )
+        trace string.concat(
+          @"count reference_inputs: ",
+          string.from_int(list.length(tx.reference_inputs)),
+        )
+        trace string.concat(
+          @"count outputs: ",
+          string.from_int(list.length(tx.outputs)),
+        )
+        and {
+          mint_bond.burn_bond_nft_with_bond_token_redeemer(
+            ctx.transaction,
+            bond_token_pid,
+          ),
+          mint_bond.create(cfg, ctx.transaction, bond_nft_pid, bond_token_pid),
+          mint_bond.create_bond_nft_with_bond_token_redeemer(tx, bond_token_pid),
+          bond_create.spending(
+            cfg,
+            ctx,
+            get_request_datum(spending_request.output),
+            bond_nft_pid,
+            bond_token_pid,
+          ),
+        }
+      }
     |> not
 }
 
 test fail_when_attempting_other_redeemer_attack_on_bond_policy() fail {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               redeemers: tx.redeemers
-                 |> dict.delete(Mint(bond_token_pid))
-                 |> dict.insert(
-                      Spend(sreq.output_reference),
-                      BondRedeem,
-                      script_purpose_compare,
-                    ),
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              redeemers: tx.redeemers
+                |> dict.delete(Mint(bond_token_pid))
+                |> dict.insert(
+                    Spend(sreq.output_reference),
+                    BondRedeem,
+                    script_purpose_compare,
+                  ),
+            },
+          },
+        )
+      }
     |> fn(args: (Input, ScriptContext)) {
-         let cfg = build_cfg()
-         let (spending_request, ctx) = args
-         let tx = ctx.transaction
-         trace @"==================="
-         trace string.concat(
-           @"count inputs: ",
-           string.from_int(list.length(tx.inputs)),
-         )
-         trace string.concat(
-           @"count reference_inputs: ",
-           string.from_int(list.length(tx.reference_inputs)),
-         )
-         trace string.concat(
-           @"count outputs: ",
-           string.from_int(list.length(tx.outputs)),
-         )
-         and {
-           mint_bond.create(cfg, ctx.transaction, bond_nft_pid, bond_token_pid),
-           mint_bond.create_bond_nft_with_bond_token_redeemer(
-             tx,
-             bond_token_pid,
-           ),
-           mint_bond.burn_bond_token(
-             ctx.transaction,
-             bond_nft_pid,
-             bond_token_pid,
-           ),
-           bond_create.spending(
-             cfg,
-             ctx,
-             get_request_datum(spending_request.output),
-             bond_nft_pid,
-             bond_token_pid,
-           ),
-         }
-       }
+        let cfg = build_cfg()
+        let (spending_request, ctx) = args
+        let tx = ctx.transaction
+        trace @"==================="
+        trace string.concat(
+          @"count inputs: ",
+          string.from_int(list.length(tx.inputs)),
+        )
+        trace string.concat(
+          @"count reference_inputs: ",
+          string.from_int(list.length(tx.reference_inputs)),
+        )
+        trace string.concat(
+          @"count outputs: ",
+          string.from_int(list.length(tx.outputs)),
+        )
+        and {
+          mint_bond.create(cfg, ctx.transaction, bond_nft_pid, bond_token_pid),
+          mint_bond.create_bond_nft_with_bond_token_redeemer(tx, bond_token_pid),
+          mint_bond.burn_bond_token(
+            ctx.transaction,
+            bond_nft_pid,
+            bond_token_pid,
+          ),
+          bond_create.spending(
+            cfg,
+            ctx,
+            get_request_datum(spending_request.output),
+            bond_nft_pid,
+            bond_token_pid,
+          ),
+        }
+      }
     |> not
 }
 
@@ -1227,20 +1218,20 @@ test fail_when_attempting_other_redeemer_attack_on_bond_policy() fail {
 test fail_when_setting_locked_bond_lovelace_lower() fail {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, ..rest] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [lender_out, bond_out |> add_lovelace(-1), ..rest],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, ..rest] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [lender_out, bond_out |> add_lovelace(-1), ..rest],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1248,20 +1239,20 @@ test fail_when_setting_locked_bond_lovelace_lower() fail {
 test fail_when_setting_bond_duration_shorter() {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, ..rest] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [lender_out, bond_out |> add_bond_duration(-1), ..rest],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, ..rest] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [lender_out, bond_out |> add_bond_duration(-1), ..rest],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1269,20 +1260,20 @@ test fail_when_setting_bond_duration_shorter() {
 test fail_when_setting_bond_duration_longer() {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, ..rest] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [lender_out, bond_out |> add_bond_duration(1), ..rest],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, ..rest] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [lender_out, bond_out |> add_bond_duration(1), ..rest],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1290,24 +1281,24 @@ test fail_when_setting_bond_duration_longer() {
 test fail_when_setting_incorrect_bond_symbol() fail {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, ..rest] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [
-                 lender_out,
-                 bond_out |> set_bond_symbol("incorect"),
-                 ..rest
-               ],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, ..rest] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [
+                lender_out,
+                bond_out |> set_bond_symbol("incorect"),
+                ..rest
+              ],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1315,20 +1306,20 @@ test fail_when_setting_incorrect_bond_symbol() fail {
 test fail_when_setting_exceeded_bond_amount() fail {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, ..rest] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [lender_out, bond_out |> add_bond_amount(1), ..rest],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, ..rest] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [lender_out, bond_out |> add_bond_amount(1), ..rest],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1336,20 +1327,20 @@ test fail_when_setting_exceeded_bond_amount() fail {
 test fail_when_setting_bond_buffer_lower() {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, ..rest] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [lender_out, bond_out |> add_bond_buffer(-1), ..rest],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, ..rest] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [lender_out, bond_out |> add_bond_buffer(-1), ..rest],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1357,20 +1348,20 @@ test fail_when_setting_bond_buffer_lower() {
 test fail_when_setting_bond_buffer_higher() fail {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, ..rest] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [lender_out, bond_out |> add_bond_buffer(1), ..rest],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, ..rest] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [lender_out, bond_out |> add_bond_buffer(1), ..rest],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1378,20 +1369,20 @@ test fail_when_setting_bond_buffer_higher() fail {
 test fail_when_setting_bond_fee_lower() fail {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, ..rest] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [lender_out, bond_out |> add_bond_fee(-1), ..rest],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, ..rest] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [lender_out, bond_out |> add_bond_fee(-1), ..rest],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1399,20 +1390,20 @@ test fail_when_setting_bond_fee_lower() fail {
 test fail_when_setting_bond_fee_higher() {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, ..rest] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [lender_out, bond_out |> add_bond_fee(1), ..rest],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, ..rest] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [lender_out, bond_out |> add_bond_fee(1), ..rest],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1420,24 +1411,24 @@ test fail_when_setting_bond_fee_higher() {
 test fail_when_setting_bond_borrower_incorrect() {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, ..rest] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [
-                 lender_out,
-                 bond_out |> set_bond_borrower("unknown-borrower"),
-                 ..rest
-               ],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, ..rest] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [
+                lender_out,
+                bond_out |> set_bond_borrower("unknown-borrower"),
+                ..rest
+              ],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1445,20 +1436,20 @@ test fail_when_setting_bond_borrower_incorrect() {
 test fail_when_setting_bond_start_sooner() fail {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, ..rest] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [lender_out, bond_out |> add_bond_start(-1), ..rest],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, ..rest] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [lender_out, bond_out |> add_bond_start(-1), ..rest],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1466,20 +1457,20 @@ test fail_when_setting_bond_start_sooner() fail {
 test fail_when_setting_bond_start_later() fail {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, ..rest] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [lender_out, bond_out |> add_bond_start(1), ..rest],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, ..rest] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [lender_out, bond_out |> add_bond_start(1), ..rest],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1487,29 +1478,29 @@ test fail_when_setting_bond_start_later() fail {
 test fail_when_bond_value_doesnt_hold_bond_nft() {
   build_tx(request: FulfilledZero, lend_amount: Entire)
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, ..rest] = tx.outputs
-         let bond = get_bond_datum(bond_out)
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [
-                 lender_out,
-                 Output {
-                   ..bond_out,
-                   value: bond_out.value
-                     |> value_without_token(bond_nft_pid, bond.token_name),
-                 },
-                 ..rest
-               ],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, ..rest] = tx.outputs
+        let bond = get_bond_datum(bond_out)
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [
+                lender_out,
+                Output {
+                  ..bond_out,
+                  value: bond_out.value
+                    |> value_without_token(bond_nft_pid, bond.token_name),
+                },
+                ..rest
+              ],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1613,20 +1604,20 @@ fn set_request_symbol(self: Output, symbol: PolicyId) {
 test fail_when_consuming_borrow_request_partially_but_remove_request() {
   build_tx(request: FulfilledZero, lend_amount: Partial(10))
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, fee_out, _remain_request] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [lender_out, bond_out, fee_out],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, fee_out, _remain_request] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [lender_out, bond_out, fee_out],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1634,25 +1625,25 @@ test fail_when_consuming_borrow_request_partially_but_remove_request() {
 test fail_when_setting_request_apr_lower() fail {
   build_tx(request: FulfilledZero, lend_amount: Partial(10))
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [
-                 lender_out,
-                 bond_out,
-                 fee_out,
-                 remain_request |> add_request_apr(-1),
-               ],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [
+                lender_out,
+                bond_out,
+                fee_out,
+                remain_request |> add_request_apr(-1),
+              ],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1660,25 +1651,25 @@ test fail_when_setting_request_apr_lower() fail {
 test fail_when_setting_request_apr_higher() fail {
   build_tx(request: FulfilledZero, lend_amount: Partial(10))
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [
-                 lender_out,
-                 bond_out,
-                 fee_out,
-                 remain_request |> add_request_apr(1),
-               ],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [
+                lender_out,
+                bond_out,
+                fee_out,
+                remain_request |> add_request_apr(1),
+              ],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1686,25 +1677,25 @@ test fail_when_setting_request_apr_higher() fail {
 test fail_when_setting_request_duration_shorter() fail {
   build_tx(request: FulfilledZero, lend_amount: Partial(10))
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [
-                 lender_out,
-                 bond_out,
-                 fee_out,
-                 remain_request |> add_request_duration(-1),
-               ],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [
+                lender_out,
+                bond_out,
+                fee_out,
+                remain_request |> add_request_duration(-1),
+              ],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1712,25 +1703,25 @@ test fail_when_setting_request_duration_shorter() fail {
 test fail_when_setting_request_duration_longer() fail {
   build_tx(request: FulfilledZero, lend_amount: Partial(10))
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [
-                 lender_out,
-                 bond_out,
-                 fee_out,
-                 remain_request |> add_request_duration(1),
-               ],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [
+                lender_out,
+                bond_out,
+                fee_out,
+                remain_request |> add_request_duration(1),
+              ],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1738,25 +1729,25 @@ test fail_when_setting_request_duration_longer() fail {
 test fail_when_setting_incorrect_request_symbol() fail {
   build_tx(request: FulfilledZero, lend_amount: Partial(10))
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [
-                 lender_out,
-                 bond_out,
-                 fee_out,
-                 remain_request |> set_request_symbol("another-symbol"),
-               ],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [
+                lender_out,
+                bond_out,
+                fee_out,
+                remain_request |> set_request_symbol("another-symbol"),
+              ],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1764,25 +1755,25 @@ test fail_when_setting_incorrect_request_symbol() fail {
 test fail_when_setting_incorrect_request_borrower() fail {
   build_tx(request: FulfilledZero, lend_amount: Partial(10))
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [
-                 lender_out,
-                 bond_out,
-                 fee_out,
-                 remain_request |> set_request_borrower("another-borrower"),
-               ],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [
+                lender_out,
+                bond_out,
+                fee_out,
+                remain_request |> set_request_borrower("another-borrower"),
+              ],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1790,25 +1781,25 @@ test fail_when_setting_incorrect_request_borrower() fail {
 test fail_when_setting_request_requested_lower() fail {
   build_tx(request: FulfilledZero, lend_amount: Partial(10))
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [
-                 lender_out,
-                 bond_out,
-                 fee_out,
-                 remain_request |> add_request_requested(-1),
-               ],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [
+                lender_out,
+                bond_out,
+                fee_out,
+                remain_request |> add_request_requested(-1),
+              ],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1816,25 +1807,25 @@ test fail_when_setting_request_requested_lower() fail {
 test fail_when_setting_request_requested_higher() fail {
   build_tx(request: FulfilledZero, lend_amount: Partial(10))
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [
-                 lender_out,
-                 bond_out,
-                 fee_out,
-                 remain_request |> add_request_requested(1),
-               ],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [
+                lender_out,
+                bond_out,
+                fee_out,
+                remain_request |> add_request_requested(1),
+              ],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1842,25 +1833,25 @@ test fail_when_setting_request_requested_higher() fail {
 test fail_when_setting_request_issued_lower() fail {
   build_tx(request: FulfilledZero, lend_amount: Partial(10))
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [
-                 lender_out,
-                 bond_out,
-                 fee_out,
-                 remain_request |> add_request_issued(-1),
-               ],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [
+                lender_out,
+                bond_out,
+                fee_out,
+                remain_request |> add_request_issued(-1),
+              ],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1868,25 +1859,25 @@ test fail_when_setting_request_issued_lower() fail {
 test fail_when_setting_request_issued_higher() {
   build_tx(request: FulfilledZero, lend_amount: Partial(10))
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [
-                 lender_out,
-                 bond_out,
-                 fee_out,
-                 remain_request |> add_request_issued(1),
-               ],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [
+                lender_out,
+                bond_out,
+                fee_out,
+                remain_request |> add_request_issued(1),
+              ],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1894,25 +1885,25 @@ test fail_when_setting_request_issued_higher() {
 test fail_when_setting_request_epo_rewards_lower() fail {
   build_tx(request: FulfilledZero, lend_amount: Partial(10))
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [
-                 lender_out,
-                 bond_out,
-                 fee_out,
-                 remain_request |> add_request_epo_rewards(-1),
-               ],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [
+                lender_out,
+                bond_out,
+                fee_out,
+                remain_request |> add_request_epo_rewards(-1),
+              ],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1920,25 +1911,25 @@ test fail_when_setting_request_epo_rewards_lower() fail {
 test fail_when_setting_request_prepaid_lower() fail {
   build_tx(request: FulfilledZero, lend_amount: Partial(10))
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [
-                 lender_out,
-                 bond_out,
-                 fee_out,
-                 remain_request |> add_request_prepaid(-1),
-               ],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [
+                lender_out,
+                bond_out,
+                fee_out,
+                remain_request |> add_request_prepaid(-1),
+              ],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1946,25 +1937,25 @@ test fail_when_setting_request_prepaid_lower() fail {
 test fail_when_setting_request_prepaid_higher() fail {
   build_tx(request: FulfilledZero, lend_amount: Partial(10))
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [
-                 lender_out,
-                 bond_out,
-                 fee_out,
-                 remain_request |> add_request_prepaid(1),
-               ],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [
+                lender_out,
+                bond_out,
+                fee_out,
+                remain_request |> add_request_prepaid(1),
+              ],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1972,25 +1963,25 @@ test fail_when_setting_request_prepaid_higher() fail {
 test fail_when_setting_request_buffer_lower() fail {
   build_tx(request: FulfilledZero, lend_amount: Partial(10))
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [
-                 lender_out,
-                 bond_out,
-                 fee_out,
-                 remain_request |> add_request_buffer(-1),
-               ],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [
+                lender_out,
+                bond_out,
+                fee_out,
+                remain_request |> add_request_buffer(-1),
+              ],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -1998,25 +1989,25 @@ test fail_when_setting_request_buffer_lower() fail {
 test fail_when_setting_request_buffer_higher() fail {
   build_tx(request: FulfilledZero, lend_amount: Partial(10))
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [
-                 lender_out,
-                 bond_out,
-                 fee_out,
-                 remain_request |> add_request_buffer(1),
-               ],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [
+                lender_out,
+                bond_out,
+                fee_out,
+                remain_request |> add_request_buffer(1),
+              ],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -2024,25 +2015,25 @@ test fail_when_setting_request_buffer_higher() fail {
 test fail_when_setting_request_fee_lower() fail {
   build_tx(request: FulfilledZero, lend_amount: Partial(10))
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [
-                 lender_out,
-                 bond_out,
-                 fee_out,
-                 remain_request |> add_request_fee(-1),
-               ],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [
+                lender_out,
+                bond_out,
+                fee_out,
+                remain_request |> add_request_fee(-1),
+              ],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }
@@ -2050,25 +2041,25 @@ test fail_when_setting_request_fee_lower() fail {
 test fail_when_setting_request_fee_higher() fail {
   build_tx(request: FulfilledZero, lend_amount: Partial(10))
     |> fn(args: (Input, ScriptContext)) {
-         let (sreq, ctx) = args
-         let tx = ctx.transaction
-         expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
-         (
-           sreq,
-           ScriptContext {
-             ..ctx,
-             transaction: Transaction {
-               ..tx,
-               outputs: [
-                 lender_out,
-                 bond_out,
-                 fee_out,
-                 remain_request |> add_request_fee(1),
-               ],
-             },
-           },
-         )
-       }
+        let (sreq, ctx) = args
+        let tx = ctx.transaction
+        expect [lender_out, bond_out, fee_out, remain_request] = tx.outputs
+        (
+          sreq,
+          ScriptContext {
+            ..ctx,
+            transaction: Transaction {
+              ..tx,
+              outputs: [
+                lender_out,
+                bond_out,
+                fee_out,
+                remain_request |> add_request_fee(1),
+              ],
+            },
+          },
+        )
+      }
     |> validate
     |> not
 }

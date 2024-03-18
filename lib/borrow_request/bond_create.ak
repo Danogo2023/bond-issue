@@ -9,6 +9,7 @@ use aiken/transaction/value.{AssetName, MintedValue, PolicyId}
 use bond_issue/types.{BondDatum, BondIssueConfig, RequestDatum}
 use borrow_request/types.{BondCreateOutput} as borrow_request_types
 use common/hash_out_refs.{hash_out_ref}
+use common/pvalue
 use common/time.{get_current_epoch_with_ttl}
 use issue_bond/utils.{bond_asset_valid, check_output_request_base}
 
@@ -199,7 +200,9 @@ fn tx_mint_valid(
     value.from_minted_value(tx_mint) |> value.to_dict(),
     True,
     fn(k, v, z) {
-      if k == bond_nft_pid || k == req_nft_pid || k == obond_dt.bond_symbol {
+      if
+      k == bond_nft_pid || ( k == req_nft_pid || k == obond_dt.bond_symbol ){
+      
         let bond_qty = dict.get(v, obond_dt.token_name) |> option.or_else(0)
         if k == bond_nft_pid && bond_qty != 1 {
           fail @"bond nft mint qty invalid"
@@ -207,7 +210,7 @@ fn tx_mint_valid(
           fail @"bond token mint qty invalid"
         } else {
           let req_qty = dict.get(v, obond_dt.borrower) |> option.or_else(0)
-          if oreq_found == False && k == req_nft_pid && req_qty != -1 {
+          if oreq_found == False && ( k == req_nft_pid && req_qty != -1 ) {
             fail @"request nft burn qty invalid"
           } else {
             z
@@ -232,7 +235,7 @@ fn bond_value_valid(
     obond_principal * sreq_dt.apr / cfg.basis.base / cfg.epoch.year_to_epoch
   let required_premium = obond_epo_rewards * sreq_dt.prepaid
   and {
-    (value.lovelace_of(obond_dt.epo_rewards) == obond_epo_rewards)?,
+    (value.lovelace_of(pvalue.to_value(obond_dt.epo_rewards)) == obond_epo_rewards)?,
     bond_asset_valid(
       bond_nft_pid,
       obond_dt,
