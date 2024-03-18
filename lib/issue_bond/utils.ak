@@ -6,6 +6,7 @@ use aiken/transaction/credential.{ScriptCredential, VerificationKeyCredential}
 use aiken/transaction/value.{AssetName, PolicyId}
 use bond_issue/types.{BondDatum, BondIssueConfig, RequestDatum}
 use common/hash_out_refs.{hash_out_ref}
+use common/pvalue
 use common/time.{get_current_epoch_with_ttl}
 use common/types.{Lovelace} as common_types
 
@@ -157,7 +158,9 @@ pub fn bond_closable(
       sbond_dt.buffer
     }
   let sbond_paid_epoch =
-    sbond_interest_paid / value.lovelace_of(sbond_dt.epo_rewards)
+    sbond_interest_paid / value.lovelace_of(
+      pvalue.to_value(sbond_dt.epo_rewards),
+    )
   or {
     (epoch_curr >= epoch_end)?,
     (sbond_paid_epoch < epoch_required_premium)?,

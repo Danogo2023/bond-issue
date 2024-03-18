@@ -14,6 +14,7 @@ use bond_issue/types.{BondDatum,
   BondIssueConfig, PlatformConfig} as bond_issue_types
 use borrow_position/mint_bond
 use borrow_position/redeem_bond
+use common/pvalue
 use common/time.{
   BasisPoints, get_epoch_config_mainnet, get_slot_config_network_mainnet,
 }
@@ -154,10 +155,10 @@ fn resolve_sbond(self: Output, lender_in: Input, redeem_type: RedeemType) {
       self
         |> set_bond_amount(remain_bond_amount)
         |> add_asset(
-             value.ada_policy_id,
-             value.ada_asset_name,
-             -(lender_received_amt + fee_amt),
-           )
+            value.ada_policy_id,
+            value.ada_asset_name,
+            -(lender_received_amt + fee_amt),
+          )
     [lender_out, fee_out, bond_out]
   }
 }
@@ -192,7 +193,7 @@ fn build_tx(redeem_type: RedeemType) {
   let t = transaction.placeholder()
   let bond_datum =
     BondDatum {
-      epo_rewards: value.from_lovelace(epo_rewards),
+      epo_rewards: value.from_lovelace(epo_rewards) |> pvalue.from_value,
       bond_symbol: bond_token_pid,
       token_name: bond_token_name,
       bond_amount: 122,
@@ -217,20 +218,20 @@ fn build_tx(redeem_type: RedeemType) {
   let mint =
     value.from_asset(bond_token_pid, bond_datum.token_name, -redeem_amt)
       |> fn(v) {
-           if redeem_amt == bond_datum.bond_amount {
-             v |> value.add(bond_nft_pid, bond_datum.token_name, -1)
-           } else {
-             v
-           }
-         }
+          if redeem_amt == bond_datum.bond_amount {
+            v |> value.add(bond_nft_pid, bond_datum.token_name, -1)
+          } else {
+            v
+          }
+        }
       |> value.to_minted_value
   let redeemers =
     t.redeemers
       |> dict.insert(
-           Spend(sbond.output_reference),
-           BondRedeem,
-           script_purpose_compare,
-         )
+          Spend(sbond.output_reference),
+          BondRedeem,
+          script_purpose_compare,
+        )
       |> dict.insert(Mint(bond_nft_pid), BondRedeem, script_purpose_compare)
       |> dict.insert(Mint(bond_token_pid), BondRedeem, script_purpose_compare)
   let tx =
@@ -288,14 +289,14 @@ test fail_when_burning_not_enough_bond_tokens_if_redeeming_partially() {
       cfg,
       tx
         |> fn(t) {
-             Transaction {
-               ..t,
-               mint: t.mint
-                 |> value.from_minted_value
-                 |> value.add(bond_token_pid, bond_token_name, 1)
-                 |> value.to_minted_value,
-             }
-           },
+            Transaction {
+              ..t,
+              mint: t.mint
+                |> value.from_minted_value
+                |> value.add(bond_token_pid, bond_token_name, 1)
+                |> value.to_minted_value,
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -313,14 +314,14 @@ test fail_when_burning_not_enough_bond_tokens_if_redeeming_all() {
       cfg,
       tx
         |> fn(t) {
-             Transaction {
-               ..t,
-               mint: t.mint
-                 |> value.from_minted_value
-                 |> value.add(bond_token_pid, bond_token_name, 1)
-                 |> value.to_minted_value,
-             }
-           },
+            Transaction {
+              ..t,
+              mint: t.mint
+                |> value.from_minted_value
+                |> value.add(bond_token_pid, bond_token_name, 1)
+                |> value.to_minted_value,
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -339,14 +340,14 @@ test fail_when_doesnt_burn_bond_tokens_if_redeeming_partially() {
       cfg,
       tx
         |> fn(t) {
-             Transaction {
-               ..t,
-               mint: t.mint
-                 |> value.from_minted_value
-                 |> value.add(bond_token_pid, bond_token_name, 1)
-                 |> value.to_minted_value,
-             }
-           },
+            Transaction {
+              ..t,
+              mint: t.mint
+                |> value.from_minted_value
+                |> value.add(bond_token_pid, bond_token_name, 1)
+                |> value.to_minted_value,
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -363,14 +364,14 @@ test fail_when_doesnt_burn_bond_tokens_if_redeeming_all() {
       cfg,
       tx
         |> fn(t) {
-             Transaction {
-               ..t,
-               mint: t.mint
-                 |> value.from_minted_value
-                 |> value.add(bond_token_pid, bond_token_name, 100)
-                 |> value.to_minted_value,
-             }
-           },
+            Transaction {
+              ..t,
+              mint: t.mint
+                |> value.from_minted_value
+                |> value.add(bond_token_pid, bond_token_name, 100)
+                |> value.to_minted_value,
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -388,14 +389,14 @@ test fail_when_doesnt_burn_bond_nft_if_redeeming_all() fail {
       cfg,
       tx
         |> fn(t) {
-             Transaction {
-               ..t,
-               mint: t.mint
-                 |> value.from_minted_value
-                 |> value.add(bond_nft_pid, bond_token_name, 1)
-                 |> value.to_minted_value,
-             }
-           },
+            Transaction {
+              ..t,
+              mint: t.mint
+                |> value.from_minted_value
+                |> value.add(bond_nft_pid, bond_token_name, 1)
+                |> value.to_minted_value,
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -413,21 +414,21 @@ test fail_when_burning_bond_nft_if_redeeming_partially() fail {
       cfg,
       tx
         |> fn(t: Transaction) {
-             expect [lender_out, fee_out, bond_out] = t.outputs
-             Transaction {
-               ..t,
-               mint: t.mint
-                 |> value.from_minted_value
-                 |> value.add(bond_nft_pid, bond_token_name, -1)
-                 |> value.to_minted_value,
-               outputs: [
-                 lender_out,
-                 fee_out,
-                 bond_out
-                   |> add_asset(bond_nft_pid, bond_token_name, -1),
-               ],
-             }
-           },
+            expect [lender_out, fee_out, bond_out] = t.outputs
+            Transaction {
+              ..t,
+              mint: t.mint
+                |> value.from_minted_value
+                |> value.add(bond_nft_pid, bond_token_name, -1)
+                |> value.to_minted_value,
+              outputs: [
+                lender_out,
+                fee_out,
+                bond_out
+                  |> add_asset(bond_nft_pid, bond_token_name, -1),
+              ],
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -447,29 +448,31 @@ test fail_when_setting_lower_epo_rewards() fail {
       cfg,
       tx
         |> fn(t: Transaction) {
-             expect [lender_out, fee_out, bond_out] = t.outputs
-             Transaction {
-               ..t,
-               outputs: [
-                 lender_out,
-                 fee_out,
-                 bond_out
-                   |> set_bond_datum(
-                        fn(datum) {
-                          BondDatum {
-                            ..datum,
-                            epo_rewards: datum.epo_rewards
-                              |> value.add(
-                                   value.ada_policy_id,
-                                   value.ada_asset_name,
-                                   -1,
-                                 ),
-                          }
-                        },
-                      ),
-               ],
-             }
-           },
+            expect [lender_out, fee_out, bond_out] = t.outputs
+            Transaction {
+              ..t,
+              outputs: [
+                lender_out,
+                fee_out,
+                bond_out
+                  |> set_bond_datum(
+                      fn(datum) {
+                        BondDatum {
+                          ..datum,
+                          epo_rewards: datum.epo_rewards
+                            |> pvalue.to_value
+                            |> value.add(
+                                value.ada_policy_id,
+                                value.ada_asset_name,
+                                -1,
+                              )
+                            |> pvalue.from_value,
+                        }
+                      },
+                    ),
+              ],
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -487,29 +490,31 @@ test fail_when_setting_higher_epo_rewards() fail {
       cfg,
       tx
         |> fn(t: Transaction) {
-             expect [lender_out, fee_out, bond_out] = t.outputs
-             Transaction {
-               ..t,
-               outputs: [
-                 lender_out,
-                 fee_out,
-                 bond_out
-                   |> set_bond_datum(
-                        fn(datum) {
-                          BondDatum {
-                            ..datum,
-                            epo_rewards: datum.epo_rewards
-                              |> value.add(
-                                   value.ada_policy_id,
-                                   value.ada_asset_name,
-                                   1,
-                                 ),
-                          }
-                        },
-                      ),
-               ],
-             }
-           },
+            expect [lender_out, fee_out, bond_out] = t.outputs
+            Transaction {
+              ..t,
+              outputs: [
+                lender_out,
+                fee_out,
+                bond_out
+                  |> set_bond_datum(
+                      fn(datum) {
+                        BondDatum {
+                          ..datum,
+                          epo_rewards: datum.epo_rewards
+                            |> pvalue.to_value
+                            |> value.add(
+                                value.ada_policy_id,
+                                value.ada_asset_name,
+                                1,
+                              )
+                            |> pvalue.from_value,
+                        }
+                      },
+                    ),
+              ],
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -527,29 +532,27 @@ test fail_when_attempting_unbounded_value_attack_on_epo_rewards() fail {
       cfg,
       tx
         |> fn(t: Transaction) {
-             expect [lender_out, fee_out, bond_out] = t.outputs
-             Transaction {
-               ..t,
-               outputs: [
-                 lender_out,
-                 fee_out,
-                 bond_out
-                   |> set_bond_datum(
-                        fn(datum) {
-                          BondDatum {
-                            ..datum,
-                            epo_rewards: datum.epo_rewards
-                              |> value.add(
-                                   "other_policy_id",
-                                   "other_asset_name",
-                                   1,
-                                 ),
-                          }
-                        },
-                      ),
-               ],
-             }
-           },
+            expect [lender_out, fee_out, bond_out] = t.outputs
+            Transaction {
+              ..t,
+              outputs: [
+                lender_out,
+                fee_out,
+                bond_out
+                  |> set_bond_datum(
+                      fn(datum) {
+                        BondDatum {
+                          ..datum,
+                          epo_rewards: datum.epo_rewards
+                            |> pvalue.to_value
+                            |> value.add("other_policy_id", "other_asset_name", 1)
+                            |> pvalue.from_value,
+                        }
+                      },
+                    ),
+              ],
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -567,21 +570,21 @@ test fail_when_setting_lower_duration() fail {
       cfg,
       tx
         |> fn(t: Transaction) {
-             expect [lender_out, fee_out, bond_out] = t.outputs
-             Transaction {
-               ..t,
-               outputs: [
-                 lender_out,
-                 fee_out,
-                 bond_out
-                   |> set_bond_datum(
-                        fn(datum) {
-                          BondDatum { ..datum, duration: datum.duration - 1 }
-                        },
-                      ),
-               ],
-             }
-           },
+            expect [lender_out, fee_out, bond_out] = t.outputs
+            Transaction {
+              ..t,
+              outputs: [
+                lender_out,
+                fee_out,
+                bond_out
+                  |> set_bond_datum(
+                      fn(datum) {
+                        BondDatum { ..datum, duration: datum.duration - 1 }
+                      },
+                    ),
+              ],
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -599,21 +602,21 @@ test fail_when_setting_higher_duration() fail {
       cfg,
       tx
         |> fn(t: Transaction) {
-             expect [lender_out, fee_out, bond_out] = t.outputs
-             Transaction {
-               ..t,
-               outputs: [
-                 lender_out,
-                 fee_out,
-                 bond_out
-                   |> set_bond_datum(
-                        fn(datum) {
-                          BondDatum { ..datum, duration: datum.duration + 1 }
-                        },
-                      ),
-               ],
-             }
-           },
+            expect [lender_out, fee_out, bond_out] = t.outputs
+            Transaction {
+              ..t,
+              outputs: [
+                lender_out,
+                fee_out,
+                bond_out
+                  |> set_bond_datum(
+                      fn(datum) {
+                        BondDatum { ..datum, duration: datum.duration + 1 }
+                      },
+                    ),
+              ],
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -631,21 +634,21 @@ test fail_when_setting_incorrect_bond_symbol() fail {
       cfg,
       tx
         |> fn(t: Transaction) {
-             expect [lender_out, fee_out, bond_out] = t.outputs
-             Transaction {
-               ..t,
-               outputs: [
-                 lender_out,
-                 fee_out,
-                 bond_out
-                   |> set_bond_datum(
-                        fn(datum) {
-                          BondDatum { ..datum, bond_symbol: "other_symbol" }
-                        },
-                      ),
-               ],
-             }
-           },
+            expect [lender_out, fee_out, bond_out] = t.outputs
+            Transaction {
+              ..t,
+              outputs: [
+                lender_out,
+                fee_out,
+                bond_out
+                  |> set_bond_datum(
+                      fn(datum) {
+                        BondDatum { ..datum, bond_symbol: "other_symbol" }
+                      },
+                    ),
+              ],
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -663,21 +666,21 @@ test fail_when_setting_incorrect_token_name() fail {
       cfg,
       tx
         |> fn(t: Transaction) {
-             expect [lender_out, fee_out, bond_out] = t.outputs
-             Transaction {
-               ..t,
-               outputs: [
-                 lender_out,
-                 fee_out,
-                 bond_out
-                   |> set_bond_datum(
-                        fn(datum) {
-                          BondDatum { ..datum, token_name: "other_token" }
-                        },
-                      ),
-               ],
-             }
-           },
+            expect [lender_out, fee_out, bond_out] = t.outputs
+            Transaction {
+              ..t,
+              outputs: [
+                lender_out,
+                fee_out,
+                bond_out
+                  |> set_bond_datum(
+                      fn(datum) {
+                        BondDatum { ..datum, token_name: "other_token" }
+                      },
+                    ),
+              ],
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -695,24 +698,24 @@ test fail_when_setting_lower_bond_amount() fail {
       cfg,
       tx
         |> fn(t: Transaction) {
-             expect [lender_out, fee_out, bond_out] = t.outputs
-             Transaction {
-               ..t,
-               outputs: [
-                 lender_out,
-                 fee_out,
-                 bond_out
-                   |> set_bond_datum(
-                        fn(datum) {
-                          BondDatum {
-                            ..datum,
-                            bond_amount: datum.bond_amount - 1,
-                          }
-                        },
-                      ),
-               ],
-             }
-           },
+            expect [lender_out, fee_out, bond_out] = t.outputs
+            Transaction {
+              ..t,
+              outputs: [
+                lender_out,
+                fee_out,
+                bond_out
+                  |> set_bond_datum(
+                      fn(datum) {
+                        BondDatum {
+                          ..datum,
+                          bond_amount: datum.bond_amount - 1,
+                        }
+                      },
+                    ),
+              ],
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -730,24 +733,24 @@ test fail_when_setting_higher_bond_amount() fail {
       cfg,
       tx
         |> fn(t: Transaction) {
-             expect [lender_out, fee_out, bond_out] = t.outputs
-             Transaction {
-               ..t,
-               outputs: [
-                 lender_out,
-                 fee_out,
-                 bond_out
-                   |> set_bond_datum(
-                        fn(datum) {
-                          BondDatum {
-                            ..datum,
-                            bond_amount: datum.bond_amount + 1,
-                          }
-                        },
-                      ),
-               ],
-             }
-           },
+            expect [lender_out, fee_out, bond_out] = t.outputs
+            Transaction {
+              ..t,
+              outputs: [
+                lender_out,
+                fee_out,
+                bond_out
+                  |> set_bond_datum(
+                      fn(datum) {
+                        BondDatum {
+                          ..datum,
+                          bond_amount: datum.bond_amount + 1,
+                        }
+                      },
+                    ),
+              ],
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -765,21 +768,21 @@ test fail_when_setting_lower_buffer() fail {
       cfg,
       tx
         |> fn(t: Transaction) {
-             expect [lender_out, fee_out, bond_out] = t.outputs
-             Transaction {
-               ..t,
-               outputs: [
-                 lender_out,
-                 fee_out,
-                 bond_out
-                   |> set_bond_datum(
-                        fn(datum) {
-                          BondDatum { ..datum, buffer: datum.buffer - 1 }
-                        },
-                      ),
-               ],
-             }
-           },
+            expect [lender_out, fee_out, bond_out] = t.outputs
+            Transaction {
+              ..t,
+              outputs: [
+                lender_out,
+                fee_out,
+                bond_out
+                  |> set_bond_datum(
+                      fn(datum) {
+                        BondDatum { ..datum, buffer: datum.buffer - 1 }
+                      },
+                    ),
+              ],
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -797,21 +800,21 @@ test fail_when_setting_higher_buffer() fail {
       cfg,
       tx
         |> fn(t: Transaction) {
-             expect [lender_out, fee_out, bond_out] = t.outputs
-             Transaction {
-               ..t,
-               outputs: [
-                 lender_out,
-                 fee_out,
-                 bond_out
-                   |> set_bond_datum(
-                        fn(datum) {
-                          BondDatum { ..datum, buffer: datum.buffer + 1 }
-                        },
-                      ),
-               ],
-             }
-           },
+            expect [lender_out, fee_out, bond_out] = t.outputs
+            Transaction {
+              ..t,
+              outputs: [
+                lender_out,
+                fee_out,
+                bond_out
+                  |> set_bond_datum(
+                      fn(datum) {
+                        BondDatum { ..datum, buffer: datum.buffer + 1 }
+                      },
+                    ),
+              ],
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -829,19 +832,19 @@ test fail_when_setting_lower_fee() fail {
       cfg,
       tx
         |> fn(t: Transaction) {
-             expect [lender_out, fee_out, bond_out] = t.outputs
-             Transaction {
-               ..t,
-               outputs: [
-                 lender_out,
-                 fee_out,
-                 bond_out
-                   |> set_bond_datum(
-                        fn(datum) { BondDatum { ..datum, fee: datum.fee - 1 } },
-                      ),
-               ],
-             }
-           },
+            expect [lender_out, fee_out, bond_out] = t.outputs
+            Transaction {
+              ..t,
+              outputs: [
+                lender_out,
+                fee_out,
+                bond_out
+                  |> set_bond_datum(
+                      fn(datum) { BondDatum { ..datum, fee: datum.fee - 1 } },
+                    ),
+              ],
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -859,19 +862,19 @@ test fail_when_setting_higher_fee() fail {
       cfg,
       tx
         |> fn(t: Transaction) {
-             expect [lender_out, fee_out, bond_out] = t.outputs
-             Transaction {
-               ..t,
-               outputs: [
-                 lender_out,
-                 fee_out,
-                 bond_out
-                   |> set_bond_datum(
-                        fn(datum) { BondDatum { ..datum, fee: datum.fee + 1 } },
-                      ),
-               ],
-             }
-           },
+            expect [lender_out, fee_out, bond_out] = t.outputs
+            Transaction {
+              ..t,
+              outputs: [
+                lender_out,
+                fee_out,
+                bond_out
+                  |> set_bond_datum(
+                      fn(datum) { BondDatum { ..datum, fee: datum.fee + 1 } },
+                    ),
+              ],
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -889,21 +892,21 @@ test fail_when_setting_incorrect_borrower() fail {
       cfg,
       tx
         |> fn(t: Transaction) {
-             expect [lender_out, fee_out, bond_out] = t.outputs
-             Transaction {
-               ..t,
-               outputs: [
-                 lender_out,
-                 fee_out,
-                 bond_out
-                   |> set_bond_datum(
-                        fn(datum) {
-                          BondDatum { ..datum, borrower: "other_borrower" }
-                        },
-                      ),
-               ],
-             }
-           },
+            expect [lender_out, fee_out, bond_out] = t.outputs
+            Transaction {
+              ..t,
+              outputs: [
+                lender_out,
+                fee_out,
+                bond_out
+                  |> set_bond_datum(
+                      fn(datum) {
+                        BondDatum { ..datum, borrower: "other_borrower" }
+                      },
+                    ),
+              ],
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -921,21 +924,21 @@ test fail_when_setting_lower_start() fail {
       cfg,
       tx
         |> fn(t: Transaction) {
-             expect [lender_out, fee_out, bond_out] = t.outputs
-             Transaction {
-               ..t,
-               outputs: [
-                 lender_out,
-                 fee_out,
-                 bond_out
-                   |> set_bond_datum(
-                        fn(datum) {
-                          BondDatum { ..datum, start: datum.start - 1 }
-                        },
-                      ),
-               ],
-             }
-           },
+            expect [lender_out, fee_out, bond_out] = t.outputs
+            Transaction {
+              ..t,
+              outputs: [
+                lender_out,
+                fee_out,
+                bond_out
+                  |> set_bond_datum(
+                      fn(datum) {
+                        BondDatum { ..datum, start: datum.start - 1 }
+                      },
+                    ),
+              ],
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -953,21 +956,21 @@ test fail_when_setting_higher_start() fail {
       cfg,
       tx
         |> fn(t: Transaction) {
-             expect [lender_out, fee_out, bond_out] = t.outputs
-             Transaction {
-               ..t,
-               outputs: [
-                 lender_out,
-                 fee_out,
-                 bond_out
-                   |> set_bond_datum(
-                        fn(datum) {
-                          BondDatum { ..datum, start: datum.start + 1 }
-                        },
-                      ),
-               ],
-             }
-           },
+            expect [lender_out, fee_out, bond_out] = t.outputs
+            Transaction {
+              ..t,
+              outputs: [
+                lender_out,
+                fee_out,
+                bond_out
+                  |> set_bond_datum(
+                      fn(datum) {
+                        BondDatum { ..datum, start: datum.start + 1 }
+                      },
+                    ),
+              ],
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -985,17 +988,17 @@ test fail_when_bond_out_hasnt_nft() fail {
       cfg,
       tx
         |> fn(t: Transaction) {
-             expect [lender_out, fee_out, bond_out] = t.outputs
-             Transaction {
-               ..t,
-               outputs: [
-                 lender_out,
-                 fee_out,
-                 bond_out
-                   |> add_asset(bond_nft_pid, bond_token_name, -1),
-               ],
-             }
-           },
+            expect [lender_out, fee_out, bond_out] = t.outputs
+            Transaction {
+              ..t,
+              outputs: [
+                lender_out,
+                fee_out,
+                bond_out
+                  |> add_asset(bond_nft_pid, bond_token_name, -1),
+              ],
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -1013,18 +1016,18 @@ test fail_when_bond_out_has_incorrect_nft_policy() fail {
       cfg,
       tx
         |> fn(t: Transaction) {
-             expect [lender_out, fee_out, bond_out] = t.outputs
-             Transaction {
-               ..t,
-               outputs: [
-                 lender_out,
-                 fee_out,
-                 bond_out
-                   |> add_asset(bond_nft_pid, bond_token_name, -1)
-                   |> add_asset("other_nft_pid", bond_token_name, 1),
-               ],
-             }
-           },
+            expect [lender_out, fee_out, bond_out] = t.outputs
+            Transaction {
+              ..t,
+              outputs: [
+                lender_out,
+                fee_out,
+                bond_out
+                  |> add_asset(bond_nft_pid, bond_token_name, -1)
+                  |> add_asset("other_nft_pid", bond_token_name, 1),
+              ],
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -1042,9 +1045,9 @@ test fail_when_removing_bond_when_claiming_partially() fail {
       cfg,
       tx
         |> fn(t: Transaction) {
-             expect [lender_out, fee_out, ..] = t.outputs
-             Transaction { ..t, outputs: [lender_out, fee_out] }
-           },
+            expect [lender_out, fee_out, ..] = t.outputs
+            Transaction { ..t, outputs: [lender_out, fee_out] }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -1063,17 +1066,17 @@ test fail_when_paying_lower_fee() fail {
       cfg,
       tx
         |> fn(t: Transaction) {
-             expect [lender_out, fee_out] = t.outputs
-             Transaction {
-               ..t,
-               outputs: [
-                 lender_out
-                   |> add_asset(value.ada_policy_id, value.ada_asset_name, 1),
-                 fee_out
-                   |> add_asset(value.ada_policy_id, value.ada_asset_name, -1),
-               ],
-             }
-           },
+            expect [lender_out, fee_out] = t.outputs
+            Transaction {
+              ..t,
+              outputs: [
+                lender_out
+                  |> add_asset(value.ada_policy_id, value.ada_asset_name, 1),
+                fee_out
+                  |> add_asset(value.ada_policy_id, value.ada_asset_name, -1),
+              ],
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -1091,19 +1094,19 @@ test fail_when_doesnt_pay_fee() fail {
       cfg,
       tx
         |> fn(t: Transaction) {
-             expect [lender_out, fee_out] = t.outputs
-             Transaction {
-               ..t,
-               outputs: [
-                 lender_out
-                   |> add_asset(
-                        value.ada_policy_id,
-                        value.ada_asset_name,
-                        value.lovelace_of(fee_out.value),
-                      ),
-               ],
-             }
-           },
+            expect [lender_out, fee_out] = t.outputs
+            Transaction {
+              ..t,
+              outputs: [
+                lender_out
+                  |> add_asset(
+                      value.ada_policy_id,
+                      value.ada_asset_name,
+                      value.lovelace_of(fee_out.value),
+                    ),
+              ],
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -1121,20 +1124,18 @@ test fail_when_doesnt_pay_fee_for_protocol() fail {
       cfg,
       tx
         |> fn(t: Transaction) {
-             expect [lender_out, fee_out] = t.outputs
-             Transaction {
-               ..t,
-               outputs: [
-                 lender_out,
-                 Output {
-                   ..fee_out,
-                   address: credential.from_verification_key(
-                     "lender_public_key",
-                   ),
-                 },
-               ],
-             }
-           },
+            expect [lender_out, fee_out] = t.outputs
+            Transaction {
+              ..t,
+              outputs: [
+                lender_out,
+                Output {
+                  ..fee_out,
+                  address: credential.from_verification_key("lender_public_key"),
+                },
+              ],
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -1153,53 +1154,54 @@ test fail_when_batching_bonds() fail {
       cfg,
       tx
         |> fn(t: Transaction) {
-             expect [lender_in, bond_in] = t.inputs
-             expect [lender_out, fee_out] = t.outputs
-             let bond_2_name = "other_bond_name"
-             let bond_2_datum =
-               BondDatum {
-                 epo_rewards: value.from_lovelace(epo_rewards),
-                 bond_symbol: bond_token_pid,
-                 token_name: bond_2_name,
-                 bond_amount: 120,
-                 fee: 200,
-                 borrower: "borrower_1",
-                 start: 400,
-                 buffer: cfg.platform.min_buffer,
-                 duration: cfg.platform.min_duration,
-               }
-             let sbond2 =
-               Input {
-                 output_reference: OutputReference(
-                   TransactionId("tx_sbond_2"),
-                   1,
-                 ),
-                 output: build_bond_output(bond_2_datum),
-               }
-             let lender_2_in =
-               Input {
-                 output_reference: OutputReference(
-                   TransactionId("lender_tx_2"),
-                   0,
-                 ),
-                 output: Output {
-                   ..lender_in.output,
-                   value: value.from_lovelace(12 * ada)
-                     |> value.add(
-                          bond_token_pid,
-                          bond_2_name,
-                          bond_2_datum.bond_amount,
-                        ),
-                 },
-               }
-             let bond_2_outs =
-               resolve_sbond(sbond2.output, lender_2_in, RedeemAll)
-             Transaction {
-               ..t,
-               inputs: [lender_in, lender_2_in, bond_in],
-               outputs: [lender_out, fee_out, ..bond_2_outs],
-             }
-           },
+            expect [lender_in, bond_in] = t.inputs
+            expect [lender_out, fee_out] = t.outputs
+            let bond_2_name = "other_bond_name"
+            let bond_2_datum =
+              BondDatum {
+                epo_rewards: value.from_lovelace(epo_rewards)
+                  |> pvalue.from_value,
+                bond_symbol: bond_token_pid,
+                token_name: bond_2_name,
+                bond_amount: 120,
+                fee: 200,
+                borrower: "borrower_1",
+                start: 400,
+                buffer: cfg.platform.min_buffer,
+                duration: cfg.platform.min_duration,
+              }
+            let sbond2 =
+              Input {
+                output_reference: OutputReference(
+                  TransactionId("tx_sbond_2"),
+                  1,
+                ),
+                output: build_bond_output(bond_2_datum),
+              }
+            let lender_2_in =
+              Input {
+                output_reference: OutputReference(
+                  TransactionId("lender_tx_2"),
+                  0,
+                ),
+                output: Output {
+                  ..lender_in.output,
+                  value: value.from_lovelace(12 * ada)
+                    |> value.add(
+                        bond_token_pid,
+                        bond_2_name,
+                        bond_2_datum.bond_amount,
+                      ),
+                },
+              }
+            let bond_2_outs =
+              resolve_sbond(sbond2.output, lender_2_in, RedeemAll)
+            Transaction {
+              ..t,
+              inputs: [lender_in, lender_2_in, bond_in],
+              outputs: [lender_out, fee_out, ..bond_2_outs],
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -1217,16 +1219,16 @@ test succ_when_lender_redeems_early_due_to_interest_buffer_violation() {
       cfg,
       tx
         |> fn(t) {
-             // duration is 100 epochs
-             // paid interest for 60 epochs
-             // buffer is 6 epochs
-             // -> lender shouldn't redeem before epoch 54
-             Transaction {
-               ..t,
-               validity_range: t.validity_range
-                 |> shift_interval(-46 * cfg.epoch.epoch_length),
-             }
-           },
+            // duration is 100 epochs
+            // paid interest for 60 epochs
+            // buffer is 6 epochs
+            // -> lender shouldn't redeem before epoch 54
+            Transaction {
+              ..t,
+              validity_range: t.validity_range
+                |> shift_interval(-46 * cfg.epoch.epoch_length),
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -1244,12 +1246,12 @@ test succ_when_lender_redeems_after_maturity() {
       cfg,
       tx
         |> fn(t) {
-             Transaction {
-               ..t,
-               validity_range: t.validity_range
-                 |> shift_interval(10 * cfg.epoch.epoch_length),
-             }
-           },
+            Transaction {
+              ..t,
+              validity_range: t.validity_range
+                |> shift_interval(10 * cfg.epoch.epoch_length),
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -1267,16 +1269,16 @@ test fail_when_lender_redeems_early_but_borrower_paid_for_buffer() {
       cfg,
       tx
         |> fn(t) {
-             // duration is 100 epoch
-             // paid interest for 60 epochs
-             // buffer is 6 epochs
-             // -> lender shouldn't redeem before epoch 54
-             Transaction {
-               ..t,
-               validity_range: t.validity_range
-                 |> shift_interval(-47 * cfg.epoch.epoch_length),
-             }
-           },
+            // duration is 100 epoch
+            // paid interest for 60 epochs
+            // buffer is 6 epochs
+            // -> lender shouldn't redeem before epoch 54
+            Transaction {
+              ..t,
+              validity_range: t.validity_range
+                |> shift_interval(-47 * cfg.epoch.epoch_length),
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -1294,16 +1296,16 @@ test fail_when_changing_bond_stake_key() fail {
       cfg,
       tx
         |> fn(t: Transaction) {
-             expect [lender_out, fee_out, bond_out] = t.outputs
-             Transaction {
-               ..t,
-               outputs: [
-                 lender_out,
-                 fee_out,
-                 bond_out |> set_stake_credential(Some("lender_stake_key")),
-               ],
-             }
-           },
+            expect [lender_out, fee_out, bond_out] = t.outputs
+            Transaction {
+              ..t,
+              outputs: [
+                lender_out,
+                fee_out,
+                bond_out |> set_stake_credential(Some("lender_stake_key")),
+              ],
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -1321,16 +1323,16 @@ test fail_when_removing_bond_stake_key() fail {
       cfg,
       tx
         |> fn(t: Transaction) {
-             expect [lender_out, fee_out, bond_out] = t.outputs
-             Transaction {
-               ..t,
-               outputs: [
-                 lender_out,
-                 fee_out,
-                 bond_out |> set_stake_credential(None),
-               ],
-             }
-           },
+            expect [lender_out, fee_out, bond_out] = t.outputs
+            Transaction {
+              ..t,
+              outputs: [
+                lender_out,
+                fee_out,
+                bond_out |> set_stake_credential(None),
+              ],
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -1348,28 +1350,28 @@ test succ_on_large_inputs_and_outputs() {
       cfg,
       tx
         |> fn(t: Transaction) {
-             let additional_inputs =
-               list.repeat(0, 50)
-                 |> list.indexed_map(
-                      fn(idx, _) {
-                        Input {
-                          output_reference: OutputReference(
-                            TransactionId("lender_tx_11"),
-                            idx,
-                          ),
-                          output: build_lender_output(100 * ada, 0),
-                        }
-                      },
-                    )
-             let additional_outputs =
-               additional_inputs |> list.map(fn(i) { i.output })
-             Transaction {
-               ..t,
-               inputs: t.inputs
-                 |> list.concat(additional_inputs),
-               outputs: t.outputs |> list.concat(additional_outputs),
-             }
-           },
+            let additional_inputs =
+              list.repeat(0, 50)
+                |> list.indexed_map(
+                    fn(idx, _) {
+                      Input {
+                        output_reference: OutputReference(
+                          TransactionId("lender_tx_11"),
+                          idx,
+                        ),
+                        output: build_lender_output(100 * ada, 0),
+                      }
+                    },
+                  )
+            let additional_outputs =
+              additional_inputs |> list.map(fn(i) { i.output })
+            Transaction {
+              ..t,
+              inputs: t.inputs
+                |> list.concat(additional_inputs),
+              outputs: t.outputs |> list.concat(additional_outputs),
+            }
+          },
       sbond,
       get_bond_datum(sbond),
       bond_nft_pid,
@@ -1389,10 +1391,10 @@ test fail_when_attempt_other_redeemer_attack_on_spend_bond() fail {
       redeemers: t.redeemers
         |> dict.delete(Spend(sbond.output_reference))
         |> dict.insert(
-             Spend(sbond.output_reference),
-             RedeemFee,
-             script_purpose_compare,
-           ),
+            Spend(sbond.output_reference),
+            RedeemFee,
+            script_purpose_compare,
+          ),
     }
   and {
     mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),

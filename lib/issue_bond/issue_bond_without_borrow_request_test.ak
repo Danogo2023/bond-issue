@@ -14,6 +14,7 @@ use bond_issue/types.{BondDatum, BondIssueConfig, PlatformConfig}
 use borrow_position/mint_bond
 use common/fixture.{get_epoch_config_mainnet}
 use common/hash_out_refs.{hash_out_ref}
+use common/pvalue
 use common/time.{BasisPoints,
   get_current_epoch, get_slot_config_network_mainnet}
 use issue_bond/types.{BondCreate, RequestCreate} as issue_bond_types
@@ -163,7 +164,7 @@ test succ_when_minting_a_bond() {
     let start = current_epoch - cfg.epoch.epoch_boundary_as_epoch
     let bond_datum =
       BondDatum {
-        epo_rewards: epo_rewards_assets,
+        epo_rewards: pvalue.from_value(epo_rewards_assets),
         duration,
         bond_symbol: bond_token_pid,
         token_name: bond_token_name,
@@ -286,7 +287,7 @@ test succ_when_minting_multiple_bonds() {
     let start = current_epoch - cfg.epoch.epoch_boundary_as_epoch
     let bond_datum =
       BondDatum {
-        epo_rewards: epo_rewards_assets,
+        epo_rewards: pvalue.from_value(epo_rewards_assets),
         duration,
         bond_symbol: bond_token_pid,
         token_name: bond_token_name,
@@ -338,7 +339,7 @@ test succ_when_minting_multiple_bonds() {
     let start = current_epoch - cfg.epoch.epoch_boundary_as_epoch
     let bond_datum =
       BondDatum {
-        epo_rewards: epo_rewards_assets,
+        epo_rewards: pvalue.from_value(epo_rewards_assets),
         duration,
         bond_symbol: bond_token_pid,
         token_name: bond_2_token_name,
@@ -475,7 +476,7 @@ test fail_when_minting_invalid_borrower_name() fail {
     let start = current_epoch - cfg.epoch.epoch_boundary_as_epoch
     let bond_datum =
       BondDatum {
-        epo_rewards: epo_rewards_assets,
+        epo_rewards: pvalue.from_value(epo_rewards_assets),
         duration,
         bond_symbol: bond_token_pid,
         token_name: bond_token_name,
@@ -594,7 +595,7 @@ test fail_when_minting_invalid_bond_nft_name() fail {
     let start = current_epoch - cfg.epoch.epoch_boundary_as_epoch
     let bond_datum =
       BondDatum {
-        epo_rewards: epo_rewards_assets,
+        epo_rewards: pvalue.from_value(epo_rewards_assets),
         duration,
         bond_symbol: bond_token_pid,
         token_name: bond_token_name,
@@ -713,7 +714,7 @@ test fail_when_minting_invalid_bond_token_name() fail {
     let start = current_epoch - cfg.epoch.epoch_boundary_as_epoch
     let bond_datum =
       BondDatum {
-        epo_rewards: epo_rewards_assets,
+        epo_rewards: pvalue.from_value(epo_rewards_assets),
         duration,
         bond_symbol: bond_token_pid,
         token_name: bond_token_name,
@@ -832,7 +833,7 @@ test fail_when_doesnt_mint_bond_nft() fail {
     let start = current_epoch - cfg.epoch.epoch_boundary_as_epoch
     let bond_datum =
       BondDatum {
-        epo_rewards: epo_rewards_assets,
+        epo_rewards: epo_rewards_assets |> pvalue.from_value,
         duration,
         bond_symbol: bond_token_pid,
         token_name: bond_token_name,
@@ -940,7 +941,7 @@ test fail_when_doesnt_mint_bond_token() fail {
     let start = current_epoch - cfg.epoch.epoch_boundary_as_epoch
     let bond_datum =
       BondDatum {
-        epo_rewards: epo_rewards_assets,
+        epo_rewards: epo_rewards_assets |> pvalue.from_value,
         duration,
         bond_symbol: bond_token_pid,
         token_name: bond_token_name,
@@ -1054,7 +1055,7 @@ test fail_when_setting_invalid_bond_symbol() fail {
     let start = current_epoch - cfg.epoch.epoch_boundary_as_epoch
     let bond_datum =
       BondDatum {
-        epo_rewards: epo_rewards_assets,
+        epo_rewards: epo_rewards_assets |> pvalue.from_value,
         duration,
         bond_symbol: "target_policy_id",
         token_name: bond_token_name,
@@ -1173,7 +1174,7 @@ test fail_when_setting_invalid_token_name() fail {
     let start = current_epoch - cfg.epoch.epoch_boundary_as_epoch
     let bond_datum =
       BondDatum {
-        epo_rewards: epo_rewards_assets,
+        epo_rewards: epo_rewards_assets |> pvalue.from_value,
         duration,
         bond_symbol: bond_token_pid,
         token_name: "target_name",
@@ -1292,7 +1293,7 @@ test fail_when_setting_lower_fee() fail {
     let start = current_epoch - cfg.epoch.epoch_boundary_as_epoch
     let bond_datum =
       BondDatum {
-        epo_rewards: epo_rewards_assets,
+        epo_rewards: epo_rewards_assets |> pvalue.from_value,
         duration,
         bond_symbol: bond_token_pid,
         token_name: bond_token_name,
@@ -1411,7 +1412,7 @@ test fail_when_setting_start_in_past() fail {
     let start = current_epoch - cfg.epoch.epoch_boundary_as_epoch
     let bond_datum =
       BondDatum {
-        epo_rewards: epo_rewards_assets,
+        epo_rewards: epo_rewards_assets |> pvalue.from_value,
         duration,
         bond_symbol: bond_token_pid,
         token_name: bond_token_name,
@@ -1531,7 +1532,7 @@ test fail_when_bond_utxo_doest_hold_nft() fail {
     let start = current_epoch - cfg.epoch.epoch_boundary_as_epoch
     let bond_datum =
       BondDatum {
-        epo_rewards: epo_rewards_assets,
+        epo_rewards: epo_rewards_assets |> pvalue.from_value,
         duration,
         bond_symbol: bond_token_pid,
         token_name: bond_token_name,
@@ -1651,7 +1652,7 @@ test fail_when_locked_assets_doesnt_meet_datum() fail {
     let start = current_epoch - cfg.epoch.epoch_boundary_as_epoch
     let bond_datum =
       BondDatum {
-        epo_rewards: epo_rewards_assets,
+        epo_rewards: epo_rewards_assets |> pvalue.from_value,
         duration,
         bond_symbol: bond_token_pid,
         token_name: bond_token_name,
@@ -1772,7 +1773,7 @@ test fail_when_setting_lower_min_buffer() fail {
     let start = current_epoch - cfg.epoch.epoch_boundary_as_epoch
     let bond_datum =
       BondDatum {
-        epo_rewards: epo_rewards_assets,
+        epo_rewards: epo_rewards_assets |> pvalue.from_value,
         duration,
         bond_symbol: bond_token_pid,
         token_name: bond_token_name,
@@ -1892,7 +1893,7 @@ test fail_when_setting_lower_min_duration() fail {
     let start = current_epoch - cfg.epoch.epoch_boundary_as_epoch
     let bond_datum =
       BondDatum {
-        epo_rewards: epo_rewards_assets,
+        epo_rewards: epo_rewards_assets |> pvalue.from_value,
         duration,
         bond_symbol: bond_token_pid,
         token_name: bond_token_name,
@@ -2016,7 +2017,7 @@ test fail_when_attempt_double_satisfaction_on_bond_nft() fail {
     let start = current_epoch - cfg.epoch.epoch_boundary_as_epoch
     let bond_datum =
       BondDatum {
-        epo_rewards: epo_rewards_assets,
+        epo_rewards: epo_rewards_assets |> pvalue.from_value,
         duration,
         bond_symbol: bond_token_pid,
         token_name: bond_token_name,
@@ -2067,7 +2068,7 @@ test fail_when_attempt_double_satisfaction_on_bond_nft() fail {
     let start = current_epoch - cfg.epoch.epoch_boundary_as_epoch
     let bond_datum =
       BondDatum {
-        epo_rewards: epo_rewards_assets,
+        epo_rewards: epo_rewards_assets |> pvalue.from_value,
         duration,
         bond_symbol: bond_token_pid,
         token_name: bond_2_token_name,
@@ -2196,7 +2197,7 @@ test fail_when_minting_exceeded_bond_token() fail {
     let start = current_epoch - cfg.epoch.epoch_boundary_as_epoch
     let bond_datum =
       BondDatum {
-        epo_rewards: epo_rewards_assets,
+        epo_rewards: epo_rewards_assets |> pvalue.from_value,
         duration,
         bond_symbol: bond_token_pid,
         token_name: bond_token_name,
@@ -2324,7 +2325,7 @@ test fail_when_minting_exceeded_bond_nft() fail {
     let start = current_epoch - cfg.epoch.epoch_boundary_as_epoch
     let bond_datum =
       BondDatum {
-        epo_rewards: epo_rewards_assets,
+        epo_rewards: epo_rewards_assets |> pvalue.from_value,
         duration,
         bond_symbol: bond_token_pid,
         token_name: bond_token_name,

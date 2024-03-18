@@ -10,6 +10,7 @@ use bond_issue/types.{BondDatum, BondIssueConfig, PlatformConfig, RequestDatum}
 use borrow_position/mint_bond
 use borrow_request/bond_create
 use common/hash_out_refs.{hash_out_ref}
+use common/pvalue
 use common/time.{
   BasisPoints, get_epoch_config_preview, get_slot_config_network_preview,
   slot_to_begin_posix_time,
@@ -154,7 +155,7 @@ test succ_bond_create() fail {
         |> value.add(bond_nft_pid, bond_name, 1),
       datum: InlineDatum(
         BondDatum {
-          epo_rewards: value.from_lovelace(449315),
+          epo_rewards: value.from_lovelace(449315) |> pvalue.from_value,
           duration: 72,
           bond_symbol: bond_token_pid,
           token_name: bond_name,
