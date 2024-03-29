@@ -8,6 +8,7 @@ use aiken/transaction/credential.{Address, PaymentCredential, ScriptCredential}
 use aiken/transaction/value.{AssetName, MintedValue, PolicyId}
 use bond_issue/types.{BondDatum, BondIssueConfig, RequestDatum}
 use borrow_request/types.{BondCreateOutput} as borrow_request_types
+use common/data
 use common/hash_out_refs.{hash_out_ref}
 use common/pvalue
 use common/time.{get_current_epoch_with_ttl}
@@ -53,20 +54,37 @@ pub fn spending(
             bond_name,
           )
         is {
-          (oreq_found, Some(obond), mint_qty) ->
-            bond_output_valid(
-              cfg,
-              tx.validity_range,
-              tx.mint,
-              sreq_dt,
-              obond,
-              mint_qty,
-              bond_nft_pid,
-              bond_token_pid,
-              bond_name,
-              req_nft_pid,
-              oreq_found,
-            )
+          (maybe_oreq, Some(obond), mint_qty) -> and {
+              bond_output_valid(
+                cfg,
+                tx.validity_range,
+                tx.mint,
+                sreq_dt,
+                obond,
+                mint_qty,
+                bond_nft_pid,
+                bond_token_pid,
+                bond_name,
+                req_nft_pid,
+                when maybe_oreq is {
+                  Some(_) -> True
+                  None -> False
+                },
+              ),
+              {
+                expect obond_dtm: BondDatum = data.output_datum(obond)
+                let sreq_lovelace = value.lovelace_of(sreq.output.value)
+                let obond_required_premium =
+                  value.lovelace_of(pvalue.to_value(obond_dtm.epo_rewards)) * sreq_dt.prepaid
+                when maybe_oreq is {
+                  Some(oreq) ->
+                    (value.lovelace_of(oreq.value) == sreq_lovelace - obond_required_premium)?
+                  None -> (sreq_lovelace == obond_required_premium)?
+                }
+              },
+            }
+
+          // 
           (_, None, _) -> fail @"not found bond output"
         }
       } else {
@@ -95,7 +113,7 @@ pub fn get_create_output(
     }
   list.foldr(
     outputs,
-    (False, None, sreq_dt.requested - sreq_dt.issued),
+    (None, None, sreq_dt.requested - sreq_dt.issued),
     fn(o, z) {
       if and {
         o.address == sreq.address,
@@ -106,41 +124,35 @@ pub fn get_create_output(
             InlineDatum(d) -> d
             _ -> fail @"only supports InlineDatum for borrow request"
           }
-        if and {
-          (z.1st == False)?,
-          //
-          check_output_request_base(cfg, sreq, sreq_dt)?,
-          (sreq_dt.requested >= sreq_dt.issued)?,
-          (sreq_dt.issued >= 0)?,
-          //
-          (oreq_dt.symbol == sreq_dt.symbol)?,
-          (oreq_dt.borrower == sreq_dt.borrower)?,
-          (oreq_dt.apr == sreq_dt.apr)?,
-          (oreq_dt.duration == sreq_dt.duration)?,
-          (oreq_dt.requested == sreq_dt.requested)?,
-          (oreq_dt.issued <= oreq_dt.requested)?,
-          (oreq_dt.issued > sreq_dt.issued)?,
-          (oreq_dt.issued >= 0)?,
-          (oreq_dt.prepaid == sreq_dt.prepaid)?,
-          (oreq_dt.buffer == sreq_dt.buffer)?,
-          (oreq_dt.fee == sreq_dt.fee)?,
-          //
-          (oreq_dt.epo_rewards >= ( oreq_dt.requested - oreq_dt.issued ) * cfg.platform.bond_face_value * oreq_dt.apr / cfg.basis.base / cfg.epoch.year_to_epoch)?,
-          (value.lovelace_of(o.value) >= oreq_dt.epo_rewards * oreq_dt.prepaid)?,
-        } {
-          (True, z.2nd, oreq_dt.issued - sreq_dt.issued)
-        } else {
-          fail
-        }
+        expect and {
+            (z.1st == None)?,
+            //
+            check_output_request_base(cfg, sreq, sreq_dt)?,
+            (sreq_dt.requested > sreq_dt.issued)?,
+            (sreq_dt.issued >= 0)?,
+            //
+            (oreq_dt.symbol == sreq_dt.symbol)?,
+            (oreq_dt.borrower == sreq_dt.borrower)?,
+            (oreq_dt.apr == sreq_dt.apr)?,
+            (oreq_dt.duration == sreq_dt.duration)?,
+            (oreq_dt.requested == sreq_dt.requested)?,
+            (oreq_dt.issued <= oreq_dt.requested)?,
+            (oreq_dt.issued > sreq_dt.issued)?,
+            (oreq_dt.issued >= 0)?,
+            (oreq_dt.prepaid == sreq_dt.prepaid)?,
+            (oreq_dt.buffer == sreq_dt.buffer)?,
+            (oreq_dt.fee == sreq_dt.fee)?,
+            //
+            (oreq_dt.epo_rewards >= ( oreq_dt.requested - oreq_dt.issued ) * cfg.platform.bond_face_value * oreq_dt.apr / cfg.basis.base / cfg.epoch.year_to_epoch)?,
+            (value.lovelace_of(o.value) >= oreq_dt.epo_rewards * oreq_dt.prepaid)?,
+          }
+        (Some(o), z.2nd, oreq_dt.issued - sreq_dt.issued)
       } else if and {
         o.address == bond_addr,
         value.quantity_of(o.value, bond_nft_pid, bond_name) == 1,
       } {
-        if (z.2nd == None)? {
-          (z.1st, Some(o), z.3rd)
-        } else {
-          fail
-        }
+        expect (z.2nd == None)?
+        (z.1st, Some(o), z.3rd)
       } else {
         z
       }
@@ -159,7 +171,7 @@ fn bond_output_valid(
   bond_token_pid: PolicyId,
   bond_name: AssetName,
   req_nft_pid: PolicyId,
-  oreq_found: Bool,
+  maybe_oreq: Bool,
 ) -> Bool {
   expect obond_dt: BondDatum =
     when obond.datum is {
@@ -184,7 +196,7 @@ fn bond_output_valid(
     (obond_dt.fee == sreq_dt.fee)?,
     (obond_dt.borrower == sreq_dt.borrower)?,
     (obond_dt.start == epoch_curr - cfg.epoch.epoch_boundary_as_epoch)?,
-    tx_mint_valid(tx_mint, bond_nft_pid, obond_dt, req_nft_pid, oreq_found),
+    tx_mint_valid(tx_mint, bond_nft_pid, obond_dt, req_nft_pid, maybe_oreq),
     bond_value_valid(cfg, sreq_dt, bond_nft_pid, obond_dt, obond),
   }
 }
@@ -194,15 +206,13 @@ fn tx_mint_valid(
   bond_nft_pid: PolicyId,
   obond_dt: BondDatum,
   req_nft_pid: PolicyId,
-  oreq_found: Bool,
+  maybe_oreq: Bool,
 ) -> Bool {
   dict.foldr(
     value.from_minted_value(tx_mint) |> value.to_dict(),
     True,
     fn(k, v, z) {
-      if
-      k == bond_nft_pid || ( k == req_nft_pid || k == obond_dt.bond_symbol ){
-      
+      if k == bond_nft_pid || k == req_nft_pid || k == obond_dt.bond_symbol {
         let bond_qty = dict.get(v, obond_dt.token_name) |> option.or_else(0)
         if k == bond_nft_pid && bond_qty != 1 {
           fail @"bond nft mint qty invalid"
@@ -210,7 +220,7 @@ fn tx_mint_valid(
           fail @"bond token mint qty invalid"
         } else {
           let req_qty = dict.get(v, obond_dt.borrower) |> option.or_else(0)
-          if oreq_found == False && ( k == req_nft_pid && req_qty != -1 ) {
+          if maybe_oreq == False && k == req_nft_pid && req_qty != -1 {
             fail @"request nft burn qty invalid"
           } else {
             z

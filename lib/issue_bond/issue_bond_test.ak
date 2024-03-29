@@ -9,7 +9,7 @@ use aiken/transaction.{
   ScriptContext, ScriptPurpose, Spend, Transaction, TransactionId,
 }
 use aiken/transaction/credential
-use aiken/transaction/value.{PolicyId, Value}
+use aiken/transaction/value.{AssetName, PolicyId, Value}
 use bond_issue/types.{BondDatum, BondIssueConfig, PlatformConfig, RequestDatum}
 use borrow_position/mint_bond
 use borrow_request/bond_create
@@ -58,6 +58,7 @@ fn build_cfg() {
       min_requested: 100,
       min_apr: 200,
       min_duration: 6,
+      min_ada: 2 * ada,
     },
   }
 }
@@ -75,11 +76,27 @@ fn get_lovelace(self: Output) {
   self.value |> value.quantity_of(value.ada_policy_id, value.ada_asset_name)
 }
 
+fn set_lovelace(self: Output, amt: Int) {
+  Output {
+    ..self,
+    value: value.without_lovelace(self.value)
+      |> value.add(value.ada_policy_id, value.ada_asset_name, amt),
+  }
+}
+
 fn add_lovelace(self: Output, amt: Int) {
   Output {
     ..self,
     value: self.value
       |> value.add(value.ada_policy_id, value.ada_asset_name, amt),
+  }
+}
+
+fn add_asset(self: Output, pid: PolicyId, name: AssetName, amt: Int) {
+  Output {
+    ..self,
+    value: self.value
+      |> value.add(pid, name, amt),
   }
 }
 
@@ -268,21 +285,16 @@ fn fulfill_borrow_request(request: Input, lend_amt: LendAmount) {
       ),
       reference_script: None,
     }
-  if bond_amount + issued == requested {
-    (bond_out, None)
-  } else {
-    (
-      bond_out,
-      Some(
-        build_request_input(
-          issued: bond_amount + issued,
-          borrower: borrower,
-          requested: requested,
-          apr: apr,
-        ).output,
-      ),
-    )
-  }
+  (
+    bond_out,
+    build_request_input(
+      issued: bond_amount + issued,
+      borrower: borrower,
+      requested: requested,
+      apr: apr,
+    ).output
+      |> set_lovelace(value.lovelace_of(request.output.value) - required_premium),
+  )
 }
 
 fn calc_fee(bond: BondDatum, request: RequestDatum) {
@@ -365,7 +377,11 @@ fn build_tx(request: FulfillmentState, lend_amount: LendAmount) {
     fulfill_borrow_request(request_in, lend_amount)
   let bond_datum = get_bond_datum(bond_out)
   let fee_out = build_fee_output(calc_fee(bond_datum, request_datum))
-  let lender_out = add_lovelace(lender_in.output, -get_lovelace(fee_out))
+  let lender_out =
+    lender_in.output
+      |> add_lovelace(-get_lovelace(fee_out))
+      |> add_asset(bond_token_pid, bond_datum.token_name, bond_datum.bond_amount)
+
   let mint =
     value.zero()
       |> value.add(bond_nft_pid, bond_datum.token_name, 1)
@@ -380,15 +396,7 @@ fn build_tx(request: FulfillmentState, lend_amount: LendAmount) {
         redeemers: t.redeemers |> with_expected_redeemers(request_in),
         validity_range: get_tx_validity_range(),
         inputs: [lender_in, request_in],
-        outputs: [lender_out, bond_out, fee_out]
-          |> list.concat(
-              when remain_request is {
-                None ->
-                  []
-                Some(r) ->
-                  [r]
-              },
-            ),
+        outputs: [lender_out, bond_out, fee_out, remain_request],
         mint: mint,
       },
     },
@@ -430,15 +438,7 @@ fn build_multi_requests_tx(
             (
               inputs |> list.concat([request_in]),
               outputs
-                |> list.concat([bond_out])
-                |> list.concat(
-                    when remain_request is {
-                      None ->
-                        []
-                      Some(r) ->
-                        [r]
-                    },
-                  ),
+                |> list.concat([bond_out, remain_request]),
               minted
                 |> value.add(bond_nft_pid, bond_datum.token_name, 1)
                 |> value.add(
@@ -2062,4 +2062,89 @@ test fail_when_setting_request_fee_higher() fail {
       }
     |> validate
     |> not
+}
+
+test fail_when_doesnt_remain_borrow_request() fail {
+  let cfg = build_cfg()
+  let t = transaction.placeholder()
+  let lender_in = build_lender_input(index: 2)
+  let request_in =
+    resolve_spending_request(
+      FulfilledZero,
+      borrower,
+      cfg.platform.min_requested,
+      cfg.platform.min_apr,
+    )
+  let request_datum = get_request_datum(request_in.output)
+  let (bond_out, _remain_request) = fulfill_borrow_request(request_in, Entire)
+  let bond_datum = get_bond_datum(bond_out)
+  let fee_out = build_fee_output(calc_fee(bond_datum, request_datum))
+  let lender_out =
+    lender_in.output
+      |> add_lovelace(-get_lovelace(fee_out))
+      |> add_asset(bond_token_pid, bond_datum.token_name, bond_datum.bond_amount)
+  let mint =
+    value.zero()
+      |> value.add(bond_nft_pid, bond_datum.token_name, 1)
+      |> value.add(bond_token_pid, bond_datum.token_name, bond_datum.bond_amount)
+      |> value.to_minted_value
+
+  let ctx =
+    ScriptContext {
+      purpose: Spend(request_in.output_reference),
+      transaction: Transaction {
+        ..t,
+        redeemers: t.redeemers |> with_expected_redeemers(request_in),
+        validity_range: get_tx_validity_range(),
+        inputs: [lender_in, request_in],
+        outputs: [lender_out, bond_out, fee_out],
+        mint: mint,
+      },
+    }
+  (request_in, ctx) |> validate
+}
+
+test fail_when_remain_borrow_request_lacks_fund() fail {
+  let cfg = build_cfg()
+  let t = transaction.placeholder()
+  let lender_in = build_lender_input(index: 2)
+  let request_in =
+    resolve_spending_request(
+      FulfilledZero,
+      borrower,
+      cfg.platform.min_requested,
+      cfg.platform.min_apr,
+    )
+  let request_datum = get_request_datum(request_in.output)
+  let (bond_out, remain_request) = fulfill_borrow_request(request_in, Entire)
+  let bond_datum = get_bond_datum(bond_out)
+  let fee_out = build_fee_output(calc_fee(bond_datum, request_datum))
+  let lender_out =
+    lender_in.output
+      |> add_lovelace(-get_lovelace(fee_out))
+      |> add_asset(bond_token_pid, bond_datum.token_name, bond_datum.bond_amount)
+  let mint =
+    value.zero()
+      |> value.add(bond_nft_pid, bond_datum.token_name, 1)
+      |> value.add(bond_token_pid, bond_datum.token_name, bond_datum.bond_amount)
+      |> value.to_minted_value
+
+  let ctx =
+    ScriptContext {
+      purpose: Spend(request_in.output_reference),
+      transaction: Transaction {
+        ..t,
+        redeemers: t.redeemers |> with_expected_redeemers(request_in),
+        validity_range: get_tx_validity_range(),
+        inputs: [lender_in, request_in],
+        outputs: [
+          lender_out,
+          bond_out,
+          fee_out,
+          remain_request |> add_lovelace(-1),
+        ],
+        mint: mint,
+      },
+    }
+  (request_in, ctx) |> validate
 }

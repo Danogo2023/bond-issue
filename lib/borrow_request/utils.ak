@@ -1,5 +1,6 @@
 use aiken/list
 use aiken/transaction.{Input, OutputReference, ScriptContext, Spend}
+use bond_issue/types.{BondIssueConfig, RequestDatum}
 use common/util.{find_while}
 
 pub fn get_input_out_ref(
@@ -32,4 +33,15 @@ pub fn get_out_ref(
       },
     )
   (spending_input, out_ref_input)
+}
+
+pub fn calc_requried_premium(
+  cfg: BondIssueConfig,
+  req_dtm: RequestDatum,
+  issue_qty: Int,
+) {
+  let principal = issue_qty * cfg.platform.bond_face_value
+  let epo_rewards =
+    principal * req_dtm.apr / cfg.basis.base / cfg.epoch.year_to_epoch
+  epo_rewards * req_dtm.prepaid
 }

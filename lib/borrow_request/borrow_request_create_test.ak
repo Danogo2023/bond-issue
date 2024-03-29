@@ -26,6 +26,8 @@ const borrower_pid = "borrower_pid"
 
 const ada = 1_000_000
 
+const min_ada = 2_000_000
+
 // ========= Builders ==========
 
 fn add_asset(self: Output, policy_id: PolicyId, token_name: ByteArray, amt: Int) {
@@ -154,7 +156,7 @@ fn get_min_prepaid(cfg: BondIssueConfig, buffer: Int) {
 }
 
 fn get_borrow_request_min_ada(epo_rewards: Int, prepaid: Int) {
-  epo_rewards * prepaid
+  epo_rewards * prepaid + min_ada
 }
 
 fn get_min_epo_rewards(
@@ -264,6 +266,7 @@ fn build_cfg() {
       min_requested: 100,
       min_apr: 200,
       min_duration: 6,
+      min_ada: 2 * ada,
     },
   }
 }
@@ -407,36 +410,36 @@ test succ_when_creating_5_requests() {
   let (inputs, outputs, mint, borrower_nfts) =
     list.repeat(0, request_count)
       |> list.indexed_map(
-           fn(idx, _) {
-             let borrower_in =
-               Input {
-                 output_reference: OutputReference(
-                   TransactionId("borrower_tx"),
-                   idx,
-                 ),
-                 output: build_borrower_output(),
-               }
-             let borrower = hash_out_ref(borrower_in.output_reference)
-             let request_out = build_borrow_request_output(borrower)
-             (borrower_in, request_out)
-           },
-         )
+          fn(idx, _) {
+            let borrower_in =
+              Input {
+                output_reference: OutputReference(
+                  TransactionId("borrower_tx"),
+                  idx,
+                ),
+                output: build_borrower_output(),
+              }
+            let borrower = hash_out_ref(borrower_in.output_reference)
+            let request_out = build_borrow_request_output(borrower)
+            (borrower_in, request_out)
+          },
+        )
       |> list.reduce(
-           ([], [], value.zero(), value.zero()),
-           fn(acc, cur) {
-             let (inputs, outputs, mint, borrower_nfts) = acc
-             let (borrower_in, request_out) = cur
-             let datum = get_request_datum(request_out)
-             (
-               [borrower_in, ..inputs],
-               [request_out, ..outputs],
-               mint
-                 |> value.add(req_nft_pid, datum.borrower, 1)
-                 |> value.add(borrower_pid, datum.borrower, 1),
-               borrower_nfts |> value.add(borrower_pid, datum.borrower, 1),
-             )
-           },
-         )
+          ([], [], value.zero(), value.zero()),
+          fn(acc, cur) {
+            let (inputs, outputs, mint, borrower_nfts) = acc
+            let (borrower_in, request_out) = cur
+            let datum = get_request_datum(request_out)
+            (
+              [borrower_in, ..inputs],
+              [request_out, ..outputs],
+              mint
+                |> value.add(req_nft_pid, datum.borrower, 1)
+                |> value.add(borrower_pid, datum.borrower, 1),
+              borrower_nfts |> value.add(borrower_pid, datum.borrower, 1),
+            )
+          },
+        )
   let borrower_out =
     Output {
       ..build_borrower_output(),
@@ -463,36 +466,36 @@ test succ_when_creating_10_requests() {
   let (inputs, outputs, mint, borrower_nfts) =
     list.repeat(0, request_count)
       |> list.indexed_map(
-           fn(idx, _) {
-             let borrower_in =
-               Input {
-                 output_reference: OutputReference(
-                   TransactionId("borrower_tx"),
-                   idx,
-                 ),
-                 output: build_borrower_output(),
-               }
-             let borrower = hash_out_ref(borrower_in.output_reference)
-             let request_out = build_borrow_request_output(borrower)
-             (borrower_in, request_out)
-           },
-         )
+          fn(idx, _) {
+            let borrower_in =
+              Input {
+                output_reference: OutputReference(
+                  TransactionId("borrower_tx"),
+                  idx,
+                ),
+                output: build_borrower_output(),
+              }
+            let borrower = hash_out_ref(borrower_in.output_reference)
+            let request_out = build_borrow_request_output(borrower)
+            (borrower_in, request_out)
+          },
+        )
       |> list.reduce(
-           ([], [], value.zero(), value.zero()),
-           fn(acc, cur) {
-             let (inputs, outputs, mint, borrower_nfts) = acc
-             let (borrower_in, request_out) = cur
-             let datum = get_request_datum(request_out)
-             (
-               [borrower_in, ..inputs],
-               [request_out, ..outputs],
-               mint
-                 |> value.add(req_nft_pid, datum.borrower, 1)
-                 |> value.add(borrower_pid, datum.borrower, 1),
-               borrower_nfts |> value.add(borrower_pid, datum.borrower, 1),
-             )
-           },
-         )
+          ([], [], value.zero(), value.zero()),
+          fn(acc, cur) {
+            let (inputs, outputs, mint, borrower_nfts) = acc
+            let (borrower_in, request_out) = cur
+            let datum = get_request_datum(request_out)
+            (
+              [borrower_in, ..inputs],
+              [request_out, ..outputs],
+              mint
+                |> value.add(req_nft_pid, datum.borrower, 1)
+                |> value.add(borrower_pid, datum.borrower, 1),
+              borrower_nfts |> value.add(borrower_pid, datum.borrower, 1),
+            )
+          },
+        )
   let borrower_out =
     Output {
       ..build_borrower_output(),
@@ -519,22 +522,22 @@ test succ_on_large_inputs_and_outputs() {
   let dust_inputs =
     list.repeat(0, dust_count)
       |> list.indexed_map(
-           fn(idx, _) {
-             Input {
-               output_reference: OutputReference(
-                 TransactionId("borrower_tx_1"),
-                 idx,
-               ),
-               output: Output {
-                 value: value.from_lovelace(100 * ada),
-                 address: credential.from_verification_key(borrower_public_key)
-                   |> credential.with_delegation_key(borrower_stake_key),
-                 datum: NoDatum,
-                 reference_script: None,
-               },
-             }
-           },
-         )
+          fn(idx, _) {
+            Input {
+              output_reference: OutputReference(
+                TransactionId("borrower_tx_1"),
+                idx,
+              ),
+              output: Output {
+                value: value.from_lovelace(100 * ada),
+                address: credential.from_verification_key(borrower_public_key)
+                  |> credential.with_delegation_key(borrower_stake_key),
+                datum: NoDatum,
+                reference_script: None,
+              },
+            }
+          },
+        )
   let dust_outputs = dust_inputs |> list.map(fn(i) { i.output })
   let tx =
     Transaction {

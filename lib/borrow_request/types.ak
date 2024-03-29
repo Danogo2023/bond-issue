@@ -4,6 +4,6 @@ use aiken/transaction.{Output}
 pub type BorrowRequestOutput =
   (Bool, Bool)
 
-// (request_valid, bond_output, mint_qty)
+// (request output, bond_output, mint_qty)
 pub type BondCreateOutput =
-  (Bool, Option<Output>, Int)
+  (Option<Output>, Option<Output>, Int)

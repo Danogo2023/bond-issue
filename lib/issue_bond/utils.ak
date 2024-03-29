@@ -126,7 +126,7 @@ pub fn check_output_request_base(
     (oreq_dt.prepaid <= oreq_dt.duration)?,
     (oreq_dt.fee >= cfg.platform.fee)?,
     (oreq_dt.epo_rewards >= ( oreq_dt.requested - oreq_dt.issued ) * cfg.platform.bond_face_value * oreq_dt.apr / cfg.basis.base / cfg.epoch.year_to_epoch)?,
-    (value.lovelace_of(o.value) >= oreq_dt.epo_rewards * oreq_dt.prepaid)?,
+    (value.lovelace_of(o.value) >= cfg.platform.min_ada + oreq_dt.epo_rewards * oreq_dt.prepaid)?,
   }
 }
 
