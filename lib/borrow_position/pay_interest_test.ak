@@ -61,6 +61,7 @@ fn build_cfg() {
       min_requested: 100,
       min_apr: 200,
       min_duration: 6,
+      min_ada: 2_000_000,
     },
   }
 }

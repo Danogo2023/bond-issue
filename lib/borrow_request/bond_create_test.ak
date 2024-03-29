@@ -51,6 +51,7 @@ test succ_bond_create() fail {
         min_requested: 100,
         min_apr: 200,
         min_duration: 6,
+        min_ada: 2_000_000,
       },
     }
   let owner_addr = credential.from_verification_key("owner")
