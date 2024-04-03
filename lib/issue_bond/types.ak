@@ -7,3 +7,7 @@ pub type BondIssueAction {
   BondChangeStakeKey
   RedeemFee
 }
+
+pub type BondIssueActionWrapper {
+  wrapper: BondIssueAction,
+}

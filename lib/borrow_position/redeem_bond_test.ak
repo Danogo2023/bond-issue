@@ -8,7 +8,10 @@ use aiken/transaction.{
   InlineDatum, Input, Mint, NoDatum, Output, OutputReference, ScriptPurpose,
   Spend, Transaction, TransactionId,
 }
-use aiken/transaction/credential.{Address, Inline, VerificationKeyCredential}
+use aiken/transaction/credential.{
+  Address, Inline, VerificationKeyCredential, from_script, from_verification_key,
+  with_delegation_key,
+}
 use aiken/transaction/value.{PolicyId}
 use bond_issue/types.{BondDatum,
   BondIssueConfig, PlatformConfig} as bond_issue_types
@@ -18,7 +21,8 @@ use common/pvalue
 use common/time.{
   BasisPoints, get_epoch_config_mainnet, get_slot_config_network_mainnet,
 }
-use issue_bond/types.{BondRedeem, RedeemFee} as issue_bond_types
+use issue_bond/types.{BondIssueActionWrapper,
+  BondRedeem, RedeemFee} as issue_bond_types
 
 const ada = 1_000_000
 
@@ -230,7 +234,7 @@ fn build_tx(redeem_type: RedeemType) {
     t.redeemers
       |> dict.insert(
           Spend(sbond.output_reference),
-          BondRedeem,
+          BondIssueActionWrapper { wrapper: BondRedeem },
           script_purpose_compare,
         )
       |> dict.insert(Mint(bond_nft_pid), BondRedeem, script_purpose_compare)
@@ -1397,6 +1401,188 @@ test fail_when_attempt_other_redeemer_attack_on_spend_bond() fail {
             script_purpose_compare,
           ),
     }
+  and {
+    mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
+    True,
+  }
+}
+
+test redeem_bond_succ_custom_redeemer_bond_redeem() {
+  let t = transaction.placeholder()
+  let bond_name =
+    #"d2ec9241d1c53dba60e928b2cb7e2d352312a0d63c67393ddd122e5ef07b649f"
+  let bond_pid = #"dc1ef6b0d0da2c54928af83906b94a9cec5175d9b695368c7bb5d8f4"
+  let bond_nft_pid = #"8bbd2d5994eaff11b0883514c6302316a981d70bf971c1264e04c95f"
+  let tx =
+    Transaction {
+      ..t,
+      inputs: [
+        Input {
+          output_reference: OutputReference(
+            TransactionId(
+              #"29667dd43e38807d3fb23ce2943b1c0363c9b224f9adc6d4ac3d1b1af3fb80c9",
+            ),
+            1,
+          ),
+          output: Output {
+            value: value.from_lovelace(9_617_167_871),
+            address: from_verification_key(
+              #"1c1015a6354b8a6d54227a129c7ab72646d55baa5f3d027a983025b5",
+            )
+              |> with_delegation_key(
+                  #"180802296535944f5a4b23427ef31a2b59648716f303cbb9a6226d75",
+                ),
+            datum: NoDatum,
+            reference_script: None,
+          },
+        },
+        Input {
+          output_reference: OutputReference(
+            TransactionId(
+              #"96fefe6d87d06839880f5785a35e8b03fc6c5bfa22f9165d427af6f2f8ebc983",
+            ),
+            0,
+          ),
+          output: Output {
+            value: value.from_lovelace(1_262_830)
+              |> value.add(bond_pid, bond_name, 10),
+            address: from_verification_key(
+              #"1c1015a6354b8a6d54227a129c7ab72646d55baa5f3d027a983025b5",
+            )
+              |> with_delegation_key(
+                  #"180802296535944f5a4b23427ef31a2b59648716f303cbb9a6226d75",
+                ),
+            datum: NoDatum,
+            reference_script: None,
+          },
+        },
+        Input {
+          output_reference: OutputReference(
+            TransactionId(
+              #"c99a2242968f29cd03923a29b59db065a1fdba40be2424bab59682cc5312cad7",
+            ),
+            0,
+          ),
+          output: Output {
+            value: value.from_lovelace(1_000_547_944)
+              |> value.add(bond_nft_pid, bond_name, 1),
+            address: from_script(
+              #"8bbd2d5994eaff11b0883514c6302316a981d70bf971c1264e04c95f",
+            )
+              |> with_delegation_key(
+                  #"4566506d723dadff77d5d2f15f60b2ddc806ee67449279900d83c8ae",
+                ),
+            datum: InlineDatum(
+              BondDatum {
+                epo_rewards: value.from_lovelace(273972) |> pvalue.from_value,
+                duration: 2,
+                bond_symbol: #"dc1ef6b0d0da2c54928af83906b94a9cec5175d9b695368c7bb5d8f4",
+                token_name: #"d2ec9241d1c53dba60e928b2cb7e2d352312a0d63c67393ddd122e5ef07b649f",
+                bond_amount: 10,
+                buffer: 2,
+                fee: 500,
+                borrower: #"d2ec9241d1c53dba60e928b2cb7e2d352312a0d63c67393ddd122e5ef07b649f",
+                start: 35635,
+              },
+            ),
+            reference_script: None,
+          },
+        },
+      ],
+      mint: value.from_asset(
+        // bond token pid
+        #"dc1ef6b0d0da2c54928af83906b94a9cec5175d9b695368c7bb5d8f4",
+        // bond token name
+        #"d2ec9241d1c53dba60e928b2cb7e2d352312a0d63c67393ddd122e5ef07b649f",
+        -1,
+      )
+        |> value.to_minted_value,
+      outputs: [
+        Output {
+          address: from_script(
+            #"8bbd2d5994eaff11b0883514c6302316a981d70bf971c1264e04c95f",
+          ),
+          value: value.from_lovelace(900_493_150)
+            |> value.add(
+                #"8bbd2d5994eaff11b0883514c6302316a981d70bf971c1264e04c95f",
+                #"d2ec9241d1c53dba60e928b2cb7e2d352312a0d63c67393ddd122e5ef07b649f",
+                1,
+              ),
+          datum: InlineDatum(
+            BondDatum {
+              epo_rewards: value.from_lovelace(273972) |> pvalue.from_value,
+              duration: 2,
+              bond_symbol: #"dc1ef6b0d0da2c54928af83906b94a9cec5175d9b695368c7bb5d8f4",
+              token_name: #"d2ec9241d1c53dba60e928b2cb7e2d352312a0d63c67393ddd122e5ef07b649f",
+              bond_amount: 9,
+              buffer: 2,
+              fee: 500,
+              borrower: #"d2ec9241d1c53dba60e928b2cb7e2d352312a0d63c67393ddd122e5ef07b649f",
+              start: 35635,
+            },
+          ),
+          reference_script: None,
+        },
+        Output {
+          address: from_verification_key(
+            #"b31ed465ff9ae7b02981ee5ae915977dbc55897dbccb7ea39ebd3a0b",
+          )
+            |> with_delegation_key(
+                #"5353caa2dd476a96de54bfc5afa93820d929c5a1912d4aa839d1f958",
+              ),
+          value: value.from_lovelace(969_750),
+          datum: NoDatum,
+          reference_script: None,
+        },
+        Output {
+          address: from_verification_key(
+            #"1c1015a6354b8a6d54227a129c7ab72646d55baa5f3d027a983025b5",
+          )
+            |> with_delegation_key(
+                #"180802296535944f5a4b23427ef31a2b59648716f303cbb9a6226d75",
+              ),
+          value: value.from_lovelace(1_262_830)
+            |> value.add(
+                #"dc1ef6b0d0da2c54928af83906b94a9cec5175d9b695368c7bb5d8f4",
+                #"d2ec9241d1c53dba60e928b2cb7e2d352312a0d63c67393ddd122e5ef07b649f",
+                9,
+              ),
+          datum: NoDatum,
+          reference_script: None,
+        },
+        Output {
+          address: from_script(
+            #"1c1015a6354b8a6d54227a129c7ab72646d55baa5f3d027a983025b5",
+          )
+            |> with_delegation_key(
+                #"180802296535944f5a4b23427ef31a2b59648716f303cbb9a6226d75",
+              ),
+          value: value.from_lovelace(9_716_055_778),
+          datum: NoDatum,
+          reference_script: None,
+        },
+      ],
+      reference_inputs: [],
+      redeemers: t.redeemers
+        |> dict.insert(
+            Mint(#"dc1ef6b0d0da2c54928af83906b94a9cec5175d9b695368c7bb5d8f4"),
+            BondRedeem,
+            script_purpose_compare,
+          )
+        |> dict.insert(
+            Spend(
+              OutputReference(
+                TransactionId(
+                  #"c99a2242968f29cd03923a29b59db065a1fdba40be2424bab59682cc5312cad7",
+                ),
+                0,
+              ),
+            ),
+            BondIssueActionWrapper { wrapper: BondRedeem },
+            script_purpose_compare,
+          ),
+    }
+
   and {
     mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid),
     True,
