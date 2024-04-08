@@ -21,8 +21,8 @@ use common/pvalue
 use common/time.{
   BasisPoints, get_epoch_config_mainnet, get_slot_config_network_mainnet,
 }
-use issue_bond/types.{BondIssueActionWrapper,
-  BondRedeem, RedeemFee} as issue_bond_types
+use issue_bond/types.{BondRedeem,
+  RedeemFee, to_multi_validator_redeemer} as issue_bond_types
 
 const ada = 1_000_000
 
@@ -234,7 +234,7 @@ fn build_tx(redeem_type: RedeemType) {
     t.redeemers
       |> dict.insert(
           Spend(sbond.output_reference),
-          BondIssueActionWrapper { wrapper: BondRedeem },
+          to_multi_validator_redeemer(BondRedeem),
           script_purpose_compare,
         )
       |> dict.insert(Mint(bond_nft_pid), BondRedeem, script_purpose_compare)
@@ -1578,7 +1578,7 @@ test redeem_bond_succ_custom_redeemer_bond_redeem() {
                 0,
               ),
             ),
-            BondIssueActionWrapper { wrapper: BondRedeem },
+            to_multi_validator_redeemer(BondRedeem),
             script_purpose_compare,
           ),
     }
