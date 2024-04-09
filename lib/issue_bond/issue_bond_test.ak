@@ -491,6 +491,7 @@ fn validate(args: (Input, ScriptContext)) {
       ctx,
       get_request_datum(spending_request.output),
       bond_nft_pid,
+      bond_skh,
       bond_token_pid,
     ),
   }
@@ -565,6 +566,7 @@ test succ_when_fulfilling_multiple_borrow_requests_entirely() {
           ctx,
           get_request_datum(req.output),
           bond_nft_pid,
+          bond_skh,
           bond_token_pid,
         ),
       }
@@ -629,6 +631,7 @@ test succ_when_fulfilling_multiple_borrow_requests_entirely_and_partially() {
           ctx,
           get_request_datum(req.output),
           bond_nft_pid,
+          bond_skh,
           bond_token_pid,
         ),
       }
@@ -693,6 +696,7 @@ test succ_when_fulfilling_5_borrow_requests() {
           ctx,
           get_request_datum(req.output),
           bond_nft_pid,
+          bond_skh,
           bond_token_pid,
         ),
       }
@@ -762,6 +766,7 @@ test succ_when_fulfilling_10_borrow_requests() {
           ctx,
           get_request_datum(req.output),
           bond_nft_pid,
+          bond_skh,
           bond_token_pid,
         ),
       }
@@ -1137,6 +1142,7 @@ test fail_when_attempting_other_redeemer_attack_on_bond_nft_policy() {
             ctx,
             get_request_datum(spending_request.output),
             bond_nft_pid,
+            bond_skh,
             bond_token_pid,
           ),
         }
@@ -1196,6 +1202,7 @@ test fail_when_attempting_other_redeemer_attack_on_bond_policy() fail {
             ctx,
             get_request_datum(spending_request.output),
             bond_nft_pid,
+            bond_skh,
             bond_token_pid,
           ),
         }

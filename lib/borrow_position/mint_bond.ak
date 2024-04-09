@@ -10,9 +10,8 @@ use bond_issue/types.{BondDatum, BondIssueConfig}
 use common/hash_out_refs.{hash_out_ref}
 use common/pvalue
 use common/time.{get_current_epoch_with_ttl}
-use issue_bond/types.{
-  BondCreate, BondIssueAction, BondRedeem, unpack_multi_validator_redeemer,
-} as issue_bond_types
+use issue_bond/types.{BondCreate,
+  BondIssueAction, BondRedeem} as issue_bond_types
 use issue_bond/utils.{bond_asset_valid}
 
 fn get_bond_token_burn(
@@ -74,8 +73,7 @@ pub fn burn_bond_token(
           let bond_nft_tokens = value.tokens(i.output.value, bond_nft_pid)
           if (dict.size(bond_nft_tokens) == 1)? {
             expect Some(rdr) = dict.get(tx.redeemers, Spend(i.output_reference))
-            expect action: BondIssueAction =
-              unpack_multi_validator_redeemer(rdr)
+            expect action: BondIssueAction = rdr
             when action is {
               BondRedeem -> {
                 expect obond_dt: BondDatum =

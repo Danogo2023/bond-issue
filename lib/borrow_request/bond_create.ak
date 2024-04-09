@@ -19,13 +19,12 @@ pub fn spending(
   ctx: ScriptContext,
   sreq_dt: RequestDatum,
   bond_nft_pid: PolicyId,
+  bond_skh: ByteArray,
   bond_token_pid: PolicyId,
 ) -> Bool {
   expect Spend(sreq_out_ref) = ctx.purpose
   let tx = ctx.transaction
-  let bond_pk = ScriptCredential(bond_nft_pid)
-  //
-  // expect Some(sreq) = transaction.find_input(tx.inputs, sreq_out_ref)
+  let bond_pk = ScriptCredential(bond_skh)
   when
     list.filter(
       tx.inputs,

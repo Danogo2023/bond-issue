@@ -275,7 +275,13 @@ test succ_when_all_rules_are_satisfied() {
   let cfg = build_cfg()
   let (tx, _borrower_in) = build_tx()
   and {
-    request_nft.minting(cfg, tx |> with_tx_summary, req_nft_pid, borrower_pid),
+    request_nft.minting(
+      cfg,
+      tx |> with_tx_summary,
+      req_nft_pid,
+      req_skh,
+      borrower_pid,
+    ),
     issue_bond_utils.mint_nft(tx, borrower_pid),
   }
 }
@@ -378,7 +384,7 @@ test fail_when_minting_invalid_request_nft_addtionally() fail {
       ],
     }
 
-  request_nft.minting(cfg, tx, req_nft_pid, borrower_pid)
+  request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid)
 }
 
 test fail_when_minting_invalid_request_nft() fail {
@@ -400,7 +406,7 @@ test fail_when_minting_invalid_request_nft() fail {
       ],
     }
 
-  request_nft.minting(cfg, tx, req_nft_pid, borrower_pid)
+  request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid)
 }
 
 test succ_when_creating_5_requests() {
@@ -454,7 +460,7 @@ test succ_when_creating_5_requests() {
     }
       |> with_tx_summary
   list.all(inputs, fn(_borrower_in) { and {
-        request_nft.minting(cfg, tx, req_nft_pid, borrower_pid),
+        request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid),
         issue_bond_utils.mint_nft(tx, borrower_pid),
       } })
 }
@@ -510,7 +516,7 @@ test succ_when_creating_10_requests() {
     }
       |> with_tx_summary
   list.all(inputs, fn(_borrower_in) { and {
-        request_nft.minting(cfg, tx, req_nft_pid, borrower_pid),
+        request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid),
         issue_bond_utils.mint_nft(tx, borrower_pid),
       } })
 }
@@ -547,7 +553,7 @@ test succ_on_large_inputs_and_outputs() {
     }
       |> with_tx_summary
   and {
-    request_nft.minting(cfg, tx, req_nft_pid, borrower_pid),
+    request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid),
     issue_bond_utils.mint_nft(tx, borrower_pid),
   }
 }
@@ -567,7 +573,7 @@ test fail_when_borrow_request_doesnt_hold_nft() {
     }
       |> with_tx_summary
   and {
-    request_nft.minting(cfg, tx, req_nft_pid, borrower_pid),
+    request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid),
     issue_bond_utils.mint_nft(tx, borrower_pid),
   } |> not
 }
@@ -591,7 +597,7 @@ test fail_when_minting_unexpected_borrower_nft() fail {
     }
       |> with_tx_summary
   and {
-    request_nft.minting(cfg, tx, req_nft_pid, borrower_pid),
+    request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid),
     issue_bond_utils.mint_nft(tx, borrower_pid),
   } |> not
 }
@@ -615,7 +621,7 @@ test fail_when_minting_unexpected_request_nft() fail {
     }
       |> with_tx_summary
   and {
-    request_nft.minting(cfg, tx, req_nft_pid, borrower_pid),
+    request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid),
     issue_bond_utils.mint_nft(tx, borrower_pid),
   } |> not
 }
@@ -639,7 +645,7 @@ test fail_when_minting_more_than_1_request_nft() fail {
     }
       |> with_tx_summary
   and {
-    request_nft.minting(cfg, tx, req_nft_pid, borrower_pid),
+    request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid),
     issue_bond_utils.mint_nft(tx, borrower_pid),
   } |> not
 }
@@ -663,7 +669,7 @@ test fail_when_minting_more_than_1_borrower_nft() fail {
     }
       |> with_tx_summary
   and {
-    request_nft.minting(cfg, tx, req_nft_pid, borrower_pid),
+    request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid),
     issue_bond_utils.mint_nft(tx, borrower_pid),
   } |> not
 }
@@ -692,7 +698,7 @@ test fail_when_borrow_request_holds_incorrect_nft() fail {
     }
       |> with_tx_summary
   and {
-    request_nft.minting(cfg, tx, req_nft_pid, borrower_pid),
+    request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid),
     issue_bond_utils.mint_nft(tx, borrower_pid),
   } |> not
 }
@@ -708,7 +714,7 @@ test fail_when_doesnt_set_stake_credential() fail {
     }
       |> with_tx_summary
   and {
-    request_nft.minting(cfg, tx, req_nft_pid, borrower_pid),
+    request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid),
     issue_bond_utils.mint_nft(tx, borrower_pid),
   } |> not
 }
@@ -724,7 +730,7 @@ test fail_when_setting_apr_lower_than_min_apr() fail {
     }
       |> with_tx_summary
   and {
-    request_nft.minting(cfg, tx, req_nft_pid, borrower_pid),
+    request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid),
     issue_bond_utils.mint_nft(tx, borrower_pid),
   } |> not
 }
@@ -743,7 +749,7 @@ test fail_when_setting_duration_lower_than_min_duration() fail {
     }
       |> with_tx_summary
   and {
-    request_nft.minting(cfg, tx, req_nft_pid, borrower_pid),
+    request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid),
     issue_bond_utils.mint_nft(tx, borrower_pid),
   } |> not
 }
@@ -759,7 +765,7 @@ test fail_when_setting_incorrect_symbol() fail {
     }
       |> with_tx_summary
   and {
-    request_nft.minting(cfg, tx, req_nft_pid, borrower_pid),
+    request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid),
     issue_bond_utils.mint_nft(tx, borrower_pid),
   } |> not
 }
@@ -775,7 +781,7 @@ test fail_when_setting_incorrect_borrower() fail {
     }
       |> with_tx_summary
   and {
-    request_nft.minting(cfg, tx, req_nft_pid, borrower_pid),
+    request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid),
     issue_bond_utils.mint_nft(tx, borrower_pid),
   } |> not
 }
@@ -794,7 +800,7 @@ test fail_when_setting_requested_lower_than_min_requested() fail {
     }
       |> with_tx_summary
   and {
-    request_nft.minting(cfg, tx, req_nft_pid, borrower_pid),
+    request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid),
     issue_bond_utils.mint_nft(tx, borrower_pid),
   } |> not
 }
@@ -807,7 +813,7 @@ test fail_when_setting_negative_issued() fail {
     Transaction { ..t, outputs: [request_out |> set_issued(-1), borrower_out] }
       |> with_tx_summary
   and {
-    request_nft.minting(cfg, tx, req_nft_pid, borrower_pid),
+    request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid),
     issue_bond_utils.mint_nft(tx, borrower_pid),
   } |> not
 }
@@ -820,7 +826,7 @@ test fail_when_setting_positive_issued() fail {
     Transaction { ..t, outputs: [request_out |> set_issued(1), borrower_out] }
       |> with_tx_summary
   and {
-    request_nft.minting(cfg, tx, req_nft_pid, borrower_pid),
+    request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid),
     issue_bond_utils.mint_nft(tx, borrower_pid),
   } |> not
 }
@@ -840,7 +846,7 @@ test fail_when_setting_epo_rewards_lower_than_expected() fail {
     }
       |> with_tx_summary
   and {
-    request_nft.minting(cfg, tx, req_nft_pid, borrower_pid),
+    request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid),
     issue_bond_utils.mint_nft(tx, borrower_pid),
   } |> not
 }
@@ -859,7 +865,7 @@ test fail_when_setting_buffer_lower_than_min_buffer() fail {
     }
       |> with_tx_summary
   and {
-    request_nft.minting(cfg, tx, req_nft_pid, borrower_pid),
+    request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid),
     issue_bond_utils.mint_nft(tx, borrower_pid),
   } |> not
 }
@@ -875,7 +881,7 @@ test fail_when_setting_fee_lower_than_min_fee() fail {
     }
       |> with_tx_summary
   and {
-    request_nft.minting(cfg, tx, req_nft_pid, borrower_pid),
+    request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid),
     issue_bond_utils.mint_nft(tx, borrower_pid),
   } |> not
 }
@@ -895,7 +901,7 @@ test fail_when_setting_prepaid_lower_min_prepaid() fail {
     }
       |> with_tx_summary
   and {
-    request_nft.minting(cfg, tx, req_nft_pid, borrower_pid),
+    request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid),
     issue_bond_utils.mint_nft(tx, borrower_pid),
   } |> not
 }
@@ -914,7 +920,7 @@ test fail_when_setting_deposit_ada_lower_than_expected() fail {
     }
       |> with_tx_summary
   and {
-    request_nft.minting(cfg, tx, req_nft_pid, borrower_pid),
+    request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid),
     issue_bond_utils.mint_nft(tx, borrower_pid),
   } |> not
 }
@@ -930,7 +936,7 @@ test fail_when_borrow_request_has_no_datum() fail {
     }
       |> with_tx_summary
   and {
-    request_nft.minting(cfg, tx, req_nft_pid, borrower_pid),
+    request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid),
     issue_bond_utils.mint_nft(tx, borrower_pid),
   } |> not
 }
@@ -953,7 +959,7 @@ test fail_when_borrow_request_has_invalid_datum() fail {
     }
       |> with_tx_summary
   and {
-    request_nft.minting(cfg, tx, req_nft_pid, borrower_pid),
+    request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid),
     issue_bond_utils.mint_nft(tx, borrower_pid),
   } |> not
 }
@@ -996,7 +1002,7 @@ test fail_when_attempting_double_satisfaction() {
     }
       |> with_tx_summary
   and {
-    request_nft.minting(cfg, tx, req_nft_pid, borrower_pid),
+    request_nft.minting(cfg, tx, req_nft_pid, req_skh, borrower_pid),
     issue_bond_utils.mint_nft(tx, borrower_pid),
   } |> not
 }
