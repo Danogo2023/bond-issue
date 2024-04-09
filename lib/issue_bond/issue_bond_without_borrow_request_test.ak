@@ -96,7 +96,8 @@ pub fn log_tx(self: Transaction) -> Transaction {
 test succ_when_minting_a_bond() {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_skh: bond_nft_pid,
+    bond_skh,
+    bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -177,7 +178,7 @@ test succ_when_minting_a_bond() {
       Output {
         value: value.from_lovelace(principal + required_premium)
           |> value.add(bond_nft_pid, bond_nft_name, 1),
-        address: credential.from_script(bond_nft_pid)
+        address: credential.from_script(bond_skh)
           |> credential.with_delegation_key("borrower_stake_key"),
         datum: InlineDatum(bond_datum),
         reference_script: None,
@@ -207,7 +208,7 @@ test succ_when_minting_a_bond() {
     }
   and {
     // mint bond_token + mint bond_nft invoking the same function
-    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid),
+    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid, bond_skh),
     mint_nft(tx, borrower_pid),
   } |> fail_if_false
 }
@@ -215,7 +216,8 @@ test succ_when_minting_a_bond() {
 test succ_when_minting_multiple_bonds() {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_skh: bond_nft_pid,
+    bond_skh,
+    bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -300,7 +302,7 @@ test succ_when_minting_multiple_bonds() {
       Output {
         value: value.from_lovelace(principal + required_premium)
           |> value.add(bond_nft_pid, bond_nft_name, 1),
-        address: credential.from_script(bond_nft_pid)
+        address: credential.from_script(bond_skh)
           |> credential.with_delegation_key("borrower_stake_key"),
         datum: InlineDatum(bond_datum),
         reference_script: None,
@@ -352,7 +354,7 @@ test succ_when_minting_multiple_bonds() {
       Output {
         value: value.from_lovelace(principal + required_premium)
           |> value.add(bond_nft_pid, bond_2_nft_name, 1),
-        address: credential.from_script(bond_nft_pid)
+        address: credential.from_script(bond_skh)
           |> credential.with_delegation_key("borrower_stake_key"),
         datum: InlineDatum(bond_datum),
         reference_script: None,
@@ -400,7 +402,7 @@ test succ_when_minting_multiple_bonds() {
     }
   and {
     // mint bond_token + mint bond_nft invoking the same function
-    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid),
+    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid, bond_skh),
     mint_nft(tx, borrower_pid),
   } |> fail_if_false
 }
@@ -408,7 +410,8 @@ test succ_when_minting_multiple_bonds() {
 test fail_when_minting_invalid_borrower_name() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_skh: bond_nft_pid,
+    bond_skh,
+    bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -489,7 +492,7 @@ test fail_when_minting_invalid_borrower_name() fail {
       Output {
         value: value.from_lovelace(principal + required_premium)
           |> value.add(bond_nft_pid, bond_nft_name, 1),
-        address: credential.from_script(bond_nft_pid)
+        address: credential.from_script(bond_skh)
           |> credential.with_delegation_key("borrower_stake_key"),
         datum: InlineDatum(bond_datum),
         reference_script: None,
@@ -519,7 +522,7 @@ test fail_when_minting_invalid_borrower_name() fail {
     }
   !and {
     // mint bond_token + mint bond_nft invoking the same function
-    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid),
+    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid, bond_skh),
     mint_nft(tx, borrower_pid),
   } |> fail_if_false
 }
@@ -527,7 +530,8 @@ test fail_when_minting_invalid_borrower_name() fail {
 test fail_when_minting_invalid_bond_nft_name() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_skh: bond_nft_pid,
+    bond_skh,
+    bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -608,7 +612,7 @@ test fail_when_minting_invalid_bond_nft_name() fail {
       Output {
         value: value.from_lovelace(principal + required_premium)
           |> value.add(bond_nft_pid, bond_nft_name, 1),
-        address: credential.from_script(bond_nft_pid)
+        address: credential.from_script(bond_skh)
           |> credential.with_delegation_key("borrower_stake_key"),
         datum: InlineDatum(bond_datum),
         reference_script: None,
@@ -638,7 +642,7 @@ test fail_when_minting_invalid_bond_nft_name() fail {
     }
   and {
     // mint bond_token + mint bond_nft invoking the same function
-    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid),
+    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid, bond_skh),
     mint_nft(tx, borrower_pid),
   } |> fail_if_false
 }
@@ -646,7 +650,8 @@ test fail_when_minting_invalid_bond_nft_name() fail {
 test fail_when_minting_invalid_bond_token_name() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_skh: bond_nft_pid,
+    bond_skh,
+    bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -727,7 +732,7 @@ test fail_when_minting_invalid_bond_token_name() fail {
       Output {
         value: value.from_lovelace(principal + required_premium)
           |> value.add(bond_nft_pid, bond_nft_name, 1),
-        address: credential.from_script(bond_nft_pid)
+        address: credential.from_script(bond_skh)
           |> credential.with_delegation_key("borrower_stake_key"),
         datum: InlineDatum(bond_datum),
         reference_script: None,
@@ -757,7 +762,7 @@ test fail_when_minting_invalid_bond_token_name() fail {
     }
   and {
     // mint bond_token + mint bond_nft invoking the same function
-    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid),
+    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid, bond_skh),
     mint_nft(tx, borrower_pid),
   } |> fail_if_false
 }
@@ -765,7 +770,8 @@ test fail_when_minting_invalid_bond_token_name() fail {
 test fail_when_doesnt_mint_bond_nft() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_skh: bond_nft_pid,
+    bond_skh,
+    bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -845,7 +851,7 @@ test fail_when_doesnt_mint_bond_nft() fail {
     (
       Output {
         value: value.from_lovelace(principal + required_premium),
-        address: credential.from_script(bond_nft_pid)
+        address: credential.from_script(bond_skh)
           |> credential.with_delegation_key("borrower_stake_key"),
         datum: InlineDatum(bond_datum),
         reference_script: None,
@@ -873,7 +879,7 @@ test fail_when_doesnt_mint_bond_nft() fail {
     }
   and {
     // mint bond_token + mint bond_nft invoking the same function
-    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid),
+    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid, bond_skh),
     mint_nft(tx, borrower_pid),
   } |> fail_if_false
 }
@@ -881,7 +887,8 @@ test fail_when_doesnt_mint_bond_nft() fail {
 test fail_when_doesnt_mint_bond_token() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_skh: bond_nft_pid,
+    bond_skh,
+    bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -954,7 +961,7 @@ test fail_when_doesnt_mint_bond_token() fail {
       Output {
         value: value.from_lovelace(principal + required_premium)
           |> value.add(bond_nft_pid, bond_nft_name, 1),
-        address: credential.from_script(bond_nft_pid)
+        address: credential.from_script(bond_skh)
           |> credential.with_delegation_key("borrower_stake_key"),
         datum: InlineDatum(bond_datum),
         reference_script: None,
@@ -979,7 +986,7 @@ test fail_when_doesnt_mint_bond_token() fail {
     }
   and {
     // mint bond_token + mint bond_nft invoking the same function
-    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid),
+    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid, bond_skh),
     mint_nft(tx, borrower_pid),
   } |> fail_if_false
 }
@@ -987,7 +994,8 @@ test fail_when_doesnt_mint_bond_token() fail {
 test fail_when_setting_invalid_bond_symbol() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_skh: bond_nft_pid,
+    bond_skh,
+    bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -1068,7 +1076,7 @@ test fail_when_setting_invalid_bond_symbol() fail {
       Output {
         value: value.from_lovelace(principal + required_premium)
           |> value.add(bond_nft_pid, bond_nft_name, 1),
-        address: credential.from_script(bond_nft_pid)
+        address: credential.from_script(bond_skh)
           |> credential.with_delegation_key("borrower_stake_key"),
         datum: InlineDatum(bond_datum),
         reference_script: None,
@@ -1098,7 +1106,7 @@ test fail_when_setting_invalid_bond_symbol() fail {
     }
   and {
     // mint bond_token + mint bond_nft invoking the same function
-    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid),
+    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid, bond_skh),
     mint_nft(tx, borrower_pid),
   } |> fail_if_false
 }
@@ -1106,7 +1114,8 @@ test fail_when_setting_invalid_bond_symbol() fail {
 test fail_when_setting_invalid_token_name() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_skh: bond_nft_pid,
+    bond_skh,
+    bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -1187,7 +1196,7 @@ test fail_when_setting_invalid_token_name() fail {
       Output {
         value: value.from_lovelace(principal + required_premium)
           |> value.add(bond_nft_pid, bond_nft_name, 1),
-        address: credential.from_script(bond_nft_pid)
+        address: credential.from_script(bond_skh)
           |> credential.with_delegation_key("borrower_stake_key"),
         datum: InlineDatum(bond_datum),
         reference_script: None,
@@ -1217,7 +1226,7 @@ test fail_when_setting_invalid_token_name() fail {
     }
   and {
     // mint bond_token + mint bond_nft invoking the same function
-    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid),
+    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid, bond_skh),
     mint_nft(tx, borrower_pid),
   } |> fail_if_false
 }
@@ -1225,7 +1234,8 @@ test fail_when_setting_invalid_token_name() fail {
 test fail_when_setting_lower_fee() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_skh: bond_nft_pid,
+    bond_skh,
+    bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -1306,7 +1316,7 @@ test fail_when_setting_lower_fee() fail {
       Output {
         value: value.from_lovelace(principal + required_premium)
           |> value.add(bond_nft_pid, bond_nft_name, 1),
-        address: credential.from_script(bond_nft_pid)
+        address: credential.from_script(bond_skh)
           |> credential.with_delegation_key("borrower_stake_key"),
         datum: InlineDatum(bond_datum),
         reference_script: None,
@@ -1336,7 +1346,7 @@ test fail_when_setting_lower_fee() fail {
     }
   and {
     // mint bond_token + mint bond_nft invoking the same function
-    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid),
+    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid, bond_skh),
     mint_nft(tx, borrower_pid),
   } |> fail_if_false
 }
@@ -1344,7 +1354,8 @@ test fail_when_setting_lower_fee() fail {
 test fail_when_setting_start_in_past() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_skh: bond_nft_pid,
+    bond_skh,
+    bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -1425,7 +1436,7 @@ test fail_when_setting_start_in_past() fail {
       Output {
         value: value.from_lovelace(principal + required_premium)
           |> value.add(bond_nft_pid, bond_nft_name, 1),
-        address: credential.from_script(bond_nft_pid)
+        address: credential.from_script(bond_skh)
           |> credential.with_delegation_key("borrower_stake_key"),
         datum: InlineDatum(bond_datum),
         reference_script: None,
@@ -1455,7 +1466,7 @@ test fail_when_setting_start_in_past() fail {
     }
   and {
     // mint bond_token + mint bond_nft invoking the same function
-    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid),
+    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid, bond_skh),
     mint_nft(tx, borrower_pid),
   } |> fail_if_false
 }
@@ -1463,7 +1474,8 @@ test fail_when_setting_start_in_past() fail {
 test fail_when_bond_utxo_doest_hold_nft() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_skh: bond_nft_pid,
+    bond_skh,
+    bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -1544,7 +1556,7 @@ test fail_when_bond_utxo_doest_hold_nft() fail {
     (
       Output {
         value: value.from_lovelace(principal + required_premium),
-        address: credential.from_script(bond_nft_pid)
+        address: credential.from_script(bond_skh)
           |> credential.with_delegation_key("borrower_stake_key"),
         datum: InlineDatum(bond_datum),
         reference_script: None,
@@ -1574,7 +1586,7 @@ test fail_when_bond_utxo_doest_hold_nft() fail {
     }
   and {
     // mint bond_token + mint bond_nft invoking the same function
-    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid),
+    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid, bond_skh),
     mint_nft(tx, borrower_pid),
   } |> fail_if_false
 }
@@ -1582,7 +1594,8 @@ test fail_when_bond_utxo_doest_hold_nft() fail {
 test fail_when_locked_assets_doesnt_meet_datum() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_skh: bond_nft_pid,
+    bond_skh,
+    bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -1666,7 +1679,7 @@ test fail_when_locked_assets_doesnt_meet_datum() fail {
         value: value.from_lovelace(principal + required_premium)
           |> value.add(ada_policy_id, ada_asset_name, -1)
           |> value.add(bond_nft_pid, bond_nft_name, 1),
-        address: credential.from_script(bond_nft_pid)
+        address: credential.from_script(bond_skh)
           |> credential.with_delegation_key("borrower_stake_key"),
         datum: InlineDatum(bond_datum),
         reference_script: None,
@@ -1696,7 +1709,7 @@ test fail_when_locked_assets_doesnt_meet_datum() fail {
     }
   and {
     // mint bond_token + mint bond_nft invoking the same function
-    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid),
+    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid, bond_skh),
     mint_nft(tx, borrower_pid),
   } |> fail_if_false
 }
@@ -1704,7 +1717,8 @@ test fail_when_locked_assets_doesnt_meet_datum() fail {
 test fail_when_setting_lower_min_buffer() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_skh: bond_nft_pid,
+    bond_skh,
+    bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -1786,7 +1800,7 @@ test fail_when_setting_lower_min_buffer() fail {
       Output {
         value: value.from_lovelace(principal + required_premium)
           |> value.add(bond_nft_pid, bond_nft_name, 1),
-        address: credential.from_script(bond_nft_pid)
+        address: credential.from_script(bond_skh)
           |> credential.with_delegation_key("borrower_stake_key"),
         datum: InlineDatum(bond_datum),
         reference_script: None,
@@ -1816,7 +1830,7 @@ test fail_when_setting_lower_min_buffer() fail {
     }
   and {
     // mint bond_token + mint bond_nft invoking the same function
-    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid),
+    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid, bond_skh),
     mint_nft(tx, borrower_pid),
   } |> fail_if_false
 }
@@ -1824,7 +1838,8 @@ test fail_when_setting_lower_min_buffer() fail {
 test fail_when_setting_lower_min_duration() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_skh: bond_nft_pid,
+    bond_skh,
+    bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -1906,7 +1921,7 @@ test fail_when_setting_lower_min_duration() fail {
       Output {
         value: value.from_lovelace(principal + required_premium)
           |> value.add(bond_nft_pid, bond_nft_name, 1),
-        address: credential.from_script(bond_nft_pid)
+        address: credential.from_script(bond_skh)
           |> credential.with_delegation_key("borrower_stake_key"),
         datum: InlineDatum(bond_datum),
         reference_script: None,
@@ -1936,7 +1951,7 @@ test fail_when_setting_lower_min_duration() fail {
     }
   and {
     // mint bond_token + mint bond_nft invoking the same function
-    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid),
+    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid, bond_skh),
     mint_nft(tx, borrower_pid),
   } |> fail_if_false
 }
@@ -1945,7 +1960,8 @@ test fail_when_setting_lower_min_duration() fail {
 test fail_when_attempt_double_satisfaction_on_bond_nft() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_skh: bond_nft_pid,
+    bond_skh,
+    bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -2030,7 +2046,7 @@ test fail_when_attempt_double_satisfaction_on_bond_nft() fail {
       Output {
         value: value.from_lovelace(principal + required_premium)
           |> value.add(bond_nft_pid, bond_nft_name, 1),
-        address: credential.from_script(bond_nft_pid)
+        address: credential.from_script(bond_skh)
           |> credential.with_delegation_key("borrower_stake_key"),
         datum: InlineDatum(bond_datum),
         reference_script: None,
@@ -2081,7 +2097,7 @@ test fail_when_attempt_double_satisfaction_on_bond_nft() fail {
       Output {
         value: value.from_lovelace(2 * ada) // <- no fund
           |> value.add(bond_nft_pid, bond_2_nft_name, 1),
-        address: credential.from_script(bond_nft_pid)
+        address: credential.from_script(bond_skh)
           |> credential.with_delegation_key("borrower_stake_key"),
         datum: InlineDatum(bond_datum),
         reference_script: None,
@@ -2129,7 +2145,7 @@ test fail_when_attempt_double_satisfaction_on_bond_nft() fail {
     }
   and {
     // mint bond_token + mint bond_nft invoking the same function
-    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid),
+    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid, bond_skh),
     mint_nft(tx, borrower_pid),
   } |> fail_if_false
 }
@@ -2137,7 +2153,8 @@ test fail_when_attempt_double_satisfaction_on_bond_nft() fail {
 test fail_when_minting_exceeded_bond_token() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_skh: bond_nft_pid,
+    bond_skh,
+    bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -2210,7 +2227,7 @@ test fail_when_minting_exceeded_bond_token() fail {
       Output {
         value: value.from_lovelace(principal + required_premium)
           |> value.add(bond_nft_pid, bond_nft_name, 1),
-        address: credential.from_script(bond_nft_pid)
+        address: credential.from_script(bond_skh)
           |> credential.with_delegation_key("borrower_stake_key"),
         datum: InlineDatum(bond_datum),
         reference_script: None,
@@ -2248,7 +2265,7 @@ test fail_when_minting_exceeded_bond_token() fail {
     }
   and {
     // mint bond_token + mint bond_nft invoking the same function
-    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid),
+    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid, bond_skh),
     mint_nft(tx, borrower_pid),
   } |> fail_if_false
 }
@@ -2256,7 +2273,8 @@ test fail_when_minting_exceeded_bond_token() fail {
 test fail_when_minting_exceeded_bond_nft() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_skh: bond_nft_pid,
+    bond_skh,
+    bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -2338,7 +2356,7 @@ test fail_when_minting_exceeded_bond_nft() fail {
       Output {
         value: value.from_lovelace(principal + required_premium)
           |> value.add(bond_nft_pid, bond_nft_name, 1),
-        address: credential.from_script(bond_nft_pid)
+        address: credential.from_script(bond_skh)
           |> credential.with_delegation_key("borrower_stake_key"),
         datum: InlineDatum(bond_datum),
         reference_script: None,
@@ -2368,7 +2386,7 @@ test fail_when_minting_exceeded_bond_nft() fail {
     }
   and {
     // mint bond_token + mint bond_nft invoking the same function
-    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid),
+    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid, bond_skh),
     mint_nft(tx, borrower_pid),
   } |> fail_if_false
 }

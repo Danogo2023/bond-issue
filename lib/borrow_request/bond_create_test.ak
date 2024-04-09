@@ -228,7 +228,7 @@ test succ_bond_create() fail {
     ScriptContext { transaction: tx, purpose: Spend(input_01.output_reference) }
 
   and {
-    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid),
+    mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid, bond_skh),
     mint_bond.create_bond_nft_with_bond_token_redeemer(tx, bond_token_pid),
     bond_create.spending(
       cfg,
@@ -237,6 +237,7 @@ test succ_bond_create() fail {
       bond_nft_pid,
       bond_skh,
       bond_token_pid,
+      req_nft_pid,
     ),
   }
 }

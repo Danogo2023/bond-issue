@@ -65,14 +65,16 @@ validator(
     ctx: ScriptContext,
   ) -> Bool {
     expect Spend(_) = ctx.purpose
+    let ProtocolParams {
+      bond_nft_pid,
+      bond_skh,
+      bond_token_pid,
+      borrow_request_pid: req_nft_pid,
+      ..
+    } =
+      get_protocol_params(protocol_nft_pid, protocol_nft_name, ctx.transaction)
     when ac is {
-      BondCreate -> {
-        let ProtocolParams { bond_nft_pid, bond_skh, bond_token_pid, .. } =
-          get_protocol_params(
-            protocol_nft_pid,
-            protocol_nft_name,
-            ctx.transaction,
-          )
+      BondCreate ->
         bond_create.spending(
           cfg,
           ctx,
@@ -80,9 +82,9 @@ validator(
           bond_nft_pid,
           bond_skh,
           bond_token_pid,
+          req_nft_pid,
         )
-      }
-      RequestUpdate -> request_update.spending(cfg, ctx, sdt)
+      RequestUpdate -> request_update.spending(cfg, ctx, sdt, req_nft_pid)
       _ ->
         fail @"spending borrow request only support BondCreate | RequestUpdate action"
     }

@@ -10,6 +10,7 @@ use bond_issue/types.{BondDatum, BondIssueConfig}
 use common/hash_out_refs.{hash_out_ref}
 use common/pvalue
 use common/time.{get_current_epoch_with_ttl}
+use common/types.{ScriptKeyHash} as common_types
 use issue_bond/types.{BondCreate,
   BondIssueAction, BondRedeem} as issue_bond_types
 use issue_bond/utils.{bond_asset_valid}
@@ -51,6 +52,7 @@ pub fn burn_bond_token(
   tx: Transaction,
   bond_nft_pid: PolicyId,
   bond_token_pid: PolicyId,
+  bond_skh: ScriptKeyHash,
 ) -> Bool {
   let tx_mint_value = value.from_minted_value(tx.mint)
   let (bond_token_burn_valid, bond_token_burn_valid_name_count) =
@@ -58,7 +60,7 @@ pub fn burn_bond_token(
       tx_mint_value |> value.tokens(bond_token_pid),
       (dict.new(), 0),
     )
-  let bond_pk = ScriptCredential(bond_nft_pid)
+  let bond_pk = ScriptCredential(bond_skh)
   let (
     bond_token_burn_valid_name_inputs,
     bond_token_burn_valid_name_inputs_count,
@@ -182,6 +184,7 @@ pub fn create(
   tx: Transaction,
   bond_nft_pid: PolicyId,
   bond_token_pid: PolicyId,
+  bond_skh: ScriptKeyHash,
 ) -> Bool {
   let (
     (bond_token_mint_valid, bond_token_mint_valid_name_count),
@@ -228,7 +231,7 @@ pub fn create(
             cfg.platform.tx_ttl,
             cfg.slot.slot_length,
           )
-        let bond_pk = ScriptCredential(bond_nft_pid)
+        let bond_pk = ScriptCredential(bond_skh)
         let (_, bond_name_outputs_valid_count) =
           list.foldr(
             tx.outputs,
