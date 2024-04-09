@@ -230,6 +230,13 @@ test succ_bond_create() fail {
   and {
     mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid),
     mint_bond.create_bond_nft_with_bond_token_redeemer(tx, bond_token_pid),
-    bond_create.spending(cfg, ctx, sreq_dt, bond_nft_pid, bond_token_pid),
+    bond_create.spending(
+      cfg,
+      ctx,
+      sreq_dt,
+      bond_nft_pid,
+      bond_skh,
+      bond_token_pid,
+    ),
   }
 }

@@ -23,6 +23,7 @@ pub fn minting(
   cfg: BondIssueConfig,
   tx: Transaction,
   req_nft_pid: PolicyId,
+  req_nft_skh: ByteArray,
   borrower_pid: PolicyId,
 ) -> Bool {
   let req_nft_name_valids =
@@ -41,7 +42,7 @@ pub fn minting(
       },
     )
   if (dict.size(req_nft_mint) == req_nft_name_mint_valid_count)? {
-    let req_pk = ScriptCredential(req_nft_pid)
+    let req_pk = ScriptCredential(req_nft_skh)
     let req_nft_outputs =
       list.filter(
         tx.outputs,

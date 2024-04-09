@@ -31,13 +31,11 @@ fn get_tx_validity_range() {
 
 fn build_protocol_params() {
   ProtocolParams {
-    // [multi-validator] policy id of bond_nft or script hash of bond utxo,
-    bond_nft_skh: "bond_nft_skh",
-    // policy id of bond token
+    bond_nft_pid: "bond_nft_pid",
+    bond_skh: "bond_skh",
     bond_token_pid: "bond_token_pid",
-    // policy id of borrower nft
     borrower_pid: "borrower_pid",
-    // [multi-validator] policy id of borrow request nft or sciprt hash of borrow request utxo
+    borrow_request_pid: "borrow_request_pid",
     borrow_request_skh: "borrow_request_skh",
   }
 }
@@ -98,7 +96,7 @@ pub fn log_tx(self: Transaction) -> Transaction {
 test succ_when_minting_a_bond() {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_nft_skh: bond_nft_pid,
+    bond_skh: bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -217,7 +215,7 @@ test succ_when_minting_a_bond() {
 test succ_when_minting_multiple_bonds() {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_nft_skh: bond_nft_pid,
+    bond_skh: bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -410,7 +408,7 @@ test succ_when_minting_multiple_bonds() {
 test fail_when_minting_invalid_borrower_name() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_nft_skh: bond_nft_pid,
+    bond_skh: bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -529,7 +527,7 @@ test fail_when_minting_invalid_borrower_name() fail {
 test fail_when_minting_invalid_bond_nft_name() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_nft_skh: bond_nft_pid,
+    bond_skh: bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -648,7 +646,7 @@ test fail_when_minting_invalid_bond_nft_name() fail {
 test fail_when_minting_invalid_bond_token_name() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_nft_skh: bond_nft_pid,
+    bond_skh: bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -767,7 +765,7 @@ test fail_when_minting_invalid_bond_token_name() fail {
 test fail_when_doesnt_mint_bond_nft() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_nft_skh: bond_nft_pid,
+    bond_skh: bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -883,7 +881,7 @@ test fail_when_doesnt_mint_bond_nft() fail {
 test fail_when_doesnt_mint_bond_token() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_nft_skh: bond_nft_pid,
+    bond_skh: bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -989,7 +987,7 @@ test fail_when_doesnt_mint_bond_token() fail {
 test fail_when_setting_invalid_bond_symbol() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_nft_skh: bond_nft_pid,
+    bond_skh: bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -1108,7 +1106,7 @@ test fail_when_setting_invalid_bond_symbol() fail {
 test fail_when_setting_invalid_token_name() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_nft_skh: bond_nft_pid,
+    bond_skh: bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -1227,7 +1225,7 @@ test fail_when_setting_invalid_token_name() fail {
 test fail_when_setting_lower_fee() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_nft_skh: bond_nft_pid,
+    bond_skh: bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -1346,7 +1344,7 @@ test fail_when_setting_lower_fee() fail {
 test fail_when_setting_start_in_past() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_nft_skh: bond_nft_pid,
+    bond_skh: bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -1465,7 +1463,7 @@ test fail_when_setting_start_in_past() fail {
 test fail_when_bond_utxo_doest_hold_nft() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_nft_skh: bond_nft_pid,
+    bond_skh: bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -1584,7 +1582,7 @@ test fail_when_bond_utxo_doest_hold_nft() fail {
 test fail_when_locked_assets_doesnt_meet_datum() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_nft_skh: bond_nft_pid,
+    bond_skh: bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -1706,7 +1704,7 @@ test fail_when_locked_assets_doesnt_meet_datum() fail {
 test fail_when_setting_lower_min_buffer() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_nft_skh: bond_nft_pid,
+    bond_skh: bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -1826,7 +1824,7 @@ test fail_when_setting_lower_min_buffer() fail {
 test fail_when_setting_lower_min_duration() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_nft_skh: bond_nft_pid,
+    bond_skh: bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -1947,7 +1945,7 @@ test fail_when_setting_lower_min_duration() fail {
 test fail_when_attempt_double_satisfaction_on_bond_nft() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_nft_skh: bond_nft_pid,
+    bond_skh: bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -2139,7 +2137,7 @@ test fail_when_attempt_double_satisfaction_on_bond_nft() fail {
 test fail_when_minting_exceeded_bond_token() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_nft_skh: bond_nft_pid,
+    bond_skh: bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
@@ -2258,7 +2256,7 @@ test fail_when_minting_exceeded_bond_token() fail {
 test fail_when_minting_exceeded_bond_nft() fail {
   let cfg = build_cfg()
   let ProtocolParams {
-    bond_nft_skh: bond_nft_pid,
+    bond_skh: bond_nft_pid,
     bond_token_pid,
     borrower_pid,
     ..
