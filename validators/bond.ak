@@ -24,11 +24,13 @@ validator(
   fn mint_bond_token(ac: BondIssueAction, ctx: ScriptContext) -> Bool {
     expect Mint(bond_token_pid) = ctx.purpose
     let tx = ctx.transaction
-    let ProtocolParams { bond_nft_pid, .. } =
+    let ProtocolParams { bond_nft_pid, bond_skh, .. } =
       get_protocol_params(protocol_nft_pid, protocol_nft_name, tx)
     when ac is {
-      BondCreate -> mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid)
-      BondRedeem -> mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid)
+      BondCreate ->
+        mint_bond.create(cfg, tx, bond_nft_pid, bond_token_pid, bond_skh)
+      BondRedeem ->
+        mint_bond.burn_bond_token(tx, bond_nft_pid, bond_token_pid, bond_skh)
       _ ->
         fail @"minting bond token only support BondCreate | BondRedeem action"
     }

@@ -12,6 +12,7 @@ use common/data
 use common/hash_out_refs.{hash_out_ref}
 use common/pvalue
 use common/time.{get_current_epoch_with_ttl}
+use common/types.{ScriptKeyHash} as common_types
 use issue_bond/utils.{bond_asset_valid, check_output_request_base}
 
 pub fn spending(
@@ -19,8 +20,9 @@ pub fn spending(
   ctx: ScriptContext,
   sreq_dt: RequestDatum,
   bond_nft_pid: PolicyId,
-  bond_skh: ByteArray,
+  bond_skh: ScriptKeyHash,
   bond_token_pid: PolicyId,
+  req_nft_pid: PolicyId,
 ) -> Bool {
   expect Spend(sreq_out_ref) = ctx.purpose
   let tx = ctx.transaction
@@ -33,10 +35,7 @@ pub fn spending(
       },
     )
   is {
-    [sreq] -> {
-      expect ScriptCredential(req_nft_pid) =
-        sreq.output.address.payment_credential
-
+    [sreq] ->
       if
       (value.quantity_of(sreq.output.value, req_nft_pid, sreq_dt.borrower) == 1)?{
       
@@ -89,7 +88,6 @@ pub fn spending(
       } else {
         fail @"not found request nft at input"
       }
-    }
     _ ->
       fail @"borrow_request/bond_create.spending: bond utxo are not allowed in tx input"
   }

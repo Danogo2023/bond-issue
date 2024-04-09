@@ -1,5 +1,5 @@
 use aiken/list
-use aiken/transaction.{InlineDatum, ScriptContext, Spend, Transaction}
+use aiken/transaction.{InlineDatum, ScriptContext, Transaction}
 use aiken/transaction/credential.{ScriptCredential, VerificationKeyCredential}
 use aiken/transaction/value.{PolicyId}
 use bond_issue/types.{BondIssueConfig, RequestDatum} as bond_issue_types
@@ -10,12 +10,9 @@ pub fn spending(
   cfg: BondIssueConfig,
   ctx: ScriptContext,
   sreq_dt: RequestDatum,
+  req_nft_pid: PolicyId,
 ) -> Bool {
-  expect Spend(sreq_out_ref) = ctx.purpose
   let tx = ctx.transaction
-  expect Some(sreq) = transaction.find_input(tx.inputs, sreq_out_ref)
-  expect ScriptCredential(req_nft_pid) = sreq.output.address.payment_credential
-
   let (oreq_found, borrower_found) =
     get_request_output(cfg, tx, sreq_dt, req_nft_pid)
   let nft_burn_qty =

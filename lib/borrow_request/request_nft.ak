@@ -6,6 +6,7 @@ use aiken/transaction/credential.{ScriptCredential}
 use aiken/transaction/value.{PolicyId}
 use bond_issue/types.{BondIssueConfig, RequestDatum} as bond_issue_types
 use common/hash_out_refs.{hash_out_ref}
+use common/types.{ScriptKeyHash}
 use issue_bond/utils.{
   check_output_request_base, get_burn_nft_names, get_output_by_nft_names,
 }
@@ -23,7 +24,7 @@ pub fn minting(
   cfg: BondIssueConfig,
   tx: Transaction,
   req_nft_pid: PolicyId,
-  req_nft_skh: ByteArray,
+  req_skh: ScriptKeyHash,
   borrower_pid: PolicyId,
 ) -> Bool {
   let req_nft_name_valids =
@@ -42,7 +43,7 @@ pub fn minting(
       },
     )
   if (dict.size(req_nft_mint) == req_nft_name_mint_valid_count)? {
-    let req_pk = ScriptCredential(req_nft_skh)
+    let req_pk = ScriptCredential(req_skh)
     let req_nft_outputs =
       list.filter(
         tx.outputs,
