@@ -70,6 +70,7 @@ validator(
       bond_skh,
       bond_token_pid,
       borrow_request_pid: req_nft_pid,
+      borrow_request_skh: req_skh,
       ..
     } =
       get_protocol_params(protocol_nft_pid, protocol_nft_name, ctx.transaction)
@@ -84,7 +85,8 @@ validator(
           bond_token_pid,
           req_nft_pid,
         )
-      RequestUpdate -> request_update.spending(cfg, ctx, sdt, req_nft_pid)
+      RequestUpdate ->
+        request_update.spending(cfg, ctx, sdt, req_nft_pid, req_skh)
       _ ->
         fail @"spending borrow request only support BondCreate | RequestUpdate action"
     }

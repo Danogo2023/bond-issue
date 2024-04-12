@@ -1,9 +1,11 @@
 use aiken/list
-use aiken/transaction.{InlineDatum, ScriptContext, Transaction}
-use aiken/transaction/credential.{ScriptCredential, VerificationKeyCredential}
+use aiken/transaction.{Output, ScriptContext, Transaction}
+use aiken/transaction/credential.{ScriptCredential}
 use aiken/transaction/value.{PolicyId}
 use bond_issue/types.{BondIssueConfig, RequestDatum} as bond_issue_types
-use borrow_request/types.{BorrowRequestOutput}
+use borrow_request/utils.{is_borrower_authenticated} as request_utils
+use common/data
+use common/types.{ScriptKeyHash} as common_types
 use issue_bond/utils.{check_output_request_base}
 
 pub fn spending(
@@ -11,72 +13,48 @@ pub fn spending(
   ctx: ScriptContext,
   sreq_dt: RequestDatum,
   req_nft_pid: PolicyId,
+  req_skh: ScriptKeyHash,
 ) -> Bool {
   let tx = ctx.transaction
-  let (oreq_found, borrower_found) =
-    get_request_output(cfg, tx, sreq_dt, req_nft_pid)
-  let nft_burn_qty =
+  let is_burned_borrow_request_nft =
     value.quantity_of(
       value.from_minted_value(tx.mint),
       req_nft_pid,
       sreq_dt.borrower,
-    )
+    ) == -1
   and {
-    borrower_found,
+    is_borrower_authenticated(tx, sreq_dt.symbol, sreq_dt.borrower)?,
     or {
-      oreq_found == True,
-      (nft_burn_qty == -1)?,
+      has_continuous_request(cfg, tx, sreq_dt, req_nft_pid, req_skh)?,
+      is_burned_borrow_request_nft?,
     },
   }
 }
 
-pub fn get_request_output(
+fn has_continuous_request(
   cfg: BondIssueConfig,
   tx: Transaction,
   sreq_dt: RequestDatum,
   req_nft_pid: PolicyId,
-) -> BorrowRequestOutput {
-  list.foldr(
-    tx.outputs,
-    (False, False),
-    fn(o, z) {
-      if and {
-        when o.address.payment_credential is {
-          VerificationKeyCredential(_) -> False
-          ScriptCredential(_) -> True
-        },
-        value.quantity_of(o.value, req_nft_pid, sreq_dt.borrower) == 1,
-      } {
-        expect oreq_dt: RequestDatum =
-          when o.datum is {
-            InlineDatum(d) -> d
-            _ ->
-              fail @"borrow_request/utils.get_request_output: only supports InlineDatum for request"
-          }
-        let oreq_valid = and {
-            (z.1st == False)?,
-            (oreq_dt.symbol == sreq_dt.symbol)?,
-            (oreq_dt.borrower == sreq_dt.borrower)?,
-            (oreq_dt.issued == sreq_dt.issued)?,
-            (oreq_dt.issued >= 0)?,
-            (o.address.stake_credential != None)?,
-            check_output_request_base(cfg, o, oreq_dt)?,
-            (oreq_dt.requested >= oreq_dt.issued)?,
-          }
-        if oreq_valid {
-          (True, z.2nd)
-        } else {
-          fail
-        }
-      } else if value.quantity_of(o.value, sreq_dt.symbol, sreq_dt.borrower) > 0 {
-        if (z.2nd == False)? {
-          (z.1st, True)
-        } else {
-          fail
-        }
-      } else {
-        z
+  req_skh: ScriptKeyHash,
+) -> Bool {
+  when list.filter(tx.outputs, fn(out) { and {
+          ScriptCredential(req_skh) == out.address.payment_credential,
+          value.quantity_of(out.value, req_nft_pid, sreq_dt.borrower) == 1,
+        } }) is {
+    [] -> False
+    [oreq] -> {
+      expect oreq_dt: RequestDatum = data.output_datum(oreq)
+      and {
+        (oreq_dt.symbol == sreq_dt.symbol)?,
+        (oreq_dt.borrower == sreq_dt.borrower)?,
+        (oreq_dt.issued == sreq_dt.issued)?,
+        (oreq_dt.issued >= 0)?,
+        (oreq.address.stake_credential != None)?,
+        check_output_request_base(cfg, oreq, oreq_dt)?,
+        (oreq_dt.requested >= oreq_dt.issued)?,
       }
-    },
-  )
+    }
+    _ -> fail @"Unreachable: borrow request nft duplication"
+  }
 }

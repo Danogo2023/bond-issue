@@ -5,10 +5,12 @@ use aiken/interval
 use aiken/list
 use aiken/string
 use aiken/transaction.{
-  InlineDatum, Input, Output, OutputReference, ScriptPurpose, Spend, Transaction,
-  TransactionId,
+  InlineDatum, Input, NoDatum, Output, OutputReference, ScriptPurpose, Spend,
+  Transaction, TransactionId,
 }
-use aiken/transaction/credential.{Address, Inline, VerificationKeyCredential}
+use aiken/transaction/credential.{
+  Address, Inline, VerificationKeyCredential, from_verification_key,
+}
 use aiken/transaction/value.{PolicyId, ada_asset_name, ada_policy_id}
 use bond_issue/types.{BondDatum,
   BondIssueConfig, PlatformConfig} as bond_issue_types
@@ -21,6 +23,8 @@ use common/time.{
 use issue_bond/types.{BondChangeStakeKey}
 
 const bond_nft_pid = "bond_nft_pid"
+
+const borrower_pid = "borrower_pid"
 
 const bond_skh = "bond_nft_pid"
 
@@ -153,6 +157,22 @@ fn set_bond_datum(self: Output, updater: fn(BondDatum) -> BondDatum) {
   Output { ..self, datum: InlineDatum(updater(get_bond_datum(self))) }
 }
 
+fn add_input(self: Transaction, input: Input) {
+  Transaction { ..self, inputs: [input, ..self.inputs] }
+}
+
+fn add_ref_input(self: Transaction, input: Input) {
+  Transaction { ..self, reference_inputs: [input, ..self.reference_inputs] }
+}
+
+fn add_output(self: Transaction, output: Output) {
+  Transaction { ..self, outputs: [output, ..self.outputs] }
+}
+
+fn add_signatory(self: Transaction, sig: ByteArray) {
+  Transaction { ..self, extra_signatories: [sig, ..self.extra_signatories] }
+}
+
 // =================Implementation===================
 
 fn validate(output_desriptor: fn(Output) -> Output) {
@@ -165,6 +185,7 @@ fn validate(output_desriptor: fn(Output) -> Output) {
       platform: platform_cfg,
     }
 
+  let borrower = "borrower_1"
   let bond_datum =
     BondDatum {
       epo_rewards: value.from_lovelace(1 * ada) |> pvalue.from_value,
@@ -172,7 +193,7 @@ fn validate(output_desriptor: fn(Output) -> Output) {
       token_name: "bond_name_1",
       bond_amount: 100,
       fee: 500,
-      borrower: "borrower_1",
+      borrower,
       start: 450,
       buffer: platform_cfg.min_buffer,
       duration: platform_cfg.min_duration,
@@ -182,18 +203,170 @@ fn validate(output_desriptor: fn(Output) -> Output) {
       output_reference: OutputReference(TransactionId("tx_sbond_1"), 0),
       output: build_bond_output(bond_datum, "owner"),
     }
+
+  let borrower_pk = "borrwer_pk"
+  let iborrower =
+    Input {
+      output_reference: OutputReference(TransactionId("tx_iborrower"), 1),
+      output: Output {
+        value: value.from_lovelace(10_000_000)
+          |> value.add(borrower_pid, borrower, 1),
+        address: from_verification_key(borrower_pk),
+        datum: NoDatum,
+        reference_script: None,
+      },
+    }
+
   expect (tx, [bond]) = build_tx([(sbond, [sbond.output |> output_desriptor])])
-  change_stake_key.constraint(
+
+  change_stake_key.spending(
     cfg: bond_issue_cfg,
-    tx: tx,
+    tx: tx
+      |> add_input(iborrower)
+      |> add_signatory(borrower_pk)
+      |> add_output(iborrower.output),
     sbond: bond,
     sbond_dt: get_bond_datum(bond),
     bond_nft_pid: bond_nft_pid,
+    borrower_pid: borrower_pid,
   )
 }
 
 test succ_when_all_rules_are_satisfied() {
   validate(fn(obond) { obond |> set_stake_credential(Some("new_owner")) })
+}
+
+test succ_when_refer_borrower_nft() {
+  let platform_cfg = build_platform_cfg()
+  let bond_issue_cfg =
+    BondIssueConfig {
+      slot: get_slot_config_network_mainnet(),
+      epoch: get_epoch_config_mainnet(),
+      basis: BasisPoints { base: 10_000, min: 1, max: 9_999 },
+      platform: platform_cfg,
+    }
+
+  let borrower = "borrower_1"
+  let bond_datum =
+    BondDatum {
+      epo_rewards: value.from_lovelace(1 * ada) |> pvalue.from_value,
+      bond_symbol: "bond_symbol_1",
+      token_name: "bond_name_1",
+      bond_amount: 100,
+      fee: 500,
+      borrower,
+      start: 450,
+      buffer: platform_cfg.min_buffer,
+      duration: platform_cfg.min_duration,
+    }
+  let sbond =
+    Input {
+      output_reference: OutputReference(TransactionId("tx_sbond_1"), 0),
+      output: build_bond_output(bond_datum, "owner"),
+    }
+
+  let borrower_pk = "borrwer_pk"
+  let iborrower =
+    Input {
+      output_reference: OutputReference(TransactionId("tx_iborrower"), 1),
+      output: Output {
+        value: value.from_lovelace(10_000_000)
+          |> value.add(borrower_pid, borrower, 1),
+        address: from_verification_key(borrower_pk),
+        datum: NoDatum,
+        reference_script: None,
+      },
+    }
+
+  expect (tx, [bond]) =
+    build_tx(
+      [
+        (
+          sbond,
+          [
+            sbond.output
+              |> set_stake_credential(Some("other_stake")),
+          ],
+        ),
+      ],
+    )
+
+  change_stake_key.spending(
+    cfg: bond_issue_cfg,
+    tx: tx
+      |> add_ref_input(iborrower)
+      |> add_signatory(borrower_pk),
+    sbond: bond,
+    sbond_dt: get_bond_datum(bond),
+    bond_nft_pid: bond_nft_pid,
+    borrower_pid: borrower_pid,
+  )
+}
+
+test fail_when_ref_borrower_nft_but_not_signed_by_borrower() fail {
+  let platform_cfg = build_platform_cfg()
+  let bond_issue_cfg =
+    BondIssueConfig {
+      slot: get_slot_config_network_mainnet(),
+      epoch: get_epoch_config_mainnet(),
+      basis: BasisPoints { base: 10_000, min: 1, max: 9_999 },
+      platform: platform_cfg,
+    }
+
+  let borrower = "borrower_1"
+  let bond_datum =
+    BondDatum {
+      epo_rewards: value.from_lovelace(1 * ada) |> pvalue.from_value,
+      bond_symbol: "bond_symbol_1",
+      token_name: "bond_name_1",
+      bond_amount: 100,
+      fee: 500,
+      borrower,
+      start: 450,
+      buffer: platform_cfg.min_buffer,
+      duration: platform_cfg.min_duration,
+    }
+  let sbond =
+    Input {
+      output_reference: OutputReference(TransactionId("tx_sbond_1"), 0),
+      output: build_bond_output(bond_datum, "owner"),
+    }
+
+  let borrower_pk = "borrwer_pk"
+  let iborrower =
+    Input {
+      output_reference: OutputReference(TransactionId("tx_iborrower"), 1),
+      output: Output {
+        value: value.from_lovelace(10_000_000)
+          |> value.add(borrower_pid, borrower, 1),
+        address: from_verification_key(borrower_pk),
+        datum: NoDatum,
+        reference_script: None,
+      },
+    }
+
+  expect (tx, [bond]) =
+    build_tx(
+      [
+        (
+          sbond,
+          [
+            sbond.output
+              |> set_stake_credential(Some("other_stake")),
+          ],
+        ),
+      ],
+    )
+
+  change_stake_key.spending(
+    cfg: bond_issue_cfg,
+    tx: tx
+      |> add_ref_input(iborrower),
+    sbond: bond,
+    sbond_dt: get_bond_datum(bond),
+    bond_nft_pid: bond_nft_pid,
+    borrower_pid: borrower_pid,
+  )
 }
 
 // Address

@@ -2,6 +2,7 @@ use aiken/list
 use aiken/transaction.{InlineDatum, Output, Transaction}
 use aiken/transaction/value.{PolicyId}
 use bond_issue/types.{BondDatum, BondIssueConfig}
+use borrow_request/utils.{is_borrower_authenticated}
 use common/time.{get_current_epoch_with_ttl}
 
 pub fn spending(
@@ -12,17 +13,9 @@ pub fn spending(
   bond_nft_pid: PolicyId,
   borrower_pid: PolicyId,
 ) -> Bool {
-  when
-    list.find(
-      tx.inputs,
-      fn(i) {
-        value.quantity_of(i.output.value, borrower_pid, sbond_dt.borrower) == 1
-      },
-    )
-  is {
-    Some(_) -> constraint(cfg, tx, sbond, sbond_dt, bond_nft_pid)
-    _ ->
-      fail @"borrow_position/change_stake_key.spending: not found borrower nft of bond utxo"
+  and {
+    is_borrower_authenticated(tx, borrower_pid, sbond_dt.borrower)?,
+    constraint(cfg, tx, sbond, sbond_dt, bond_nft_pid),
   }
 }
 
