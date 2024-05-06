@@ -6,4 +6,5 @@ pub type BondIssueAction {
   BondPayInterest
   BondChangeStakeKey
   RedeemFee
+  RedeemForce
 }
