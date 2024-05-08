@@ -2,7 +2,7 @@ import {
   addressFromBech32,
   inlineStakeCredentialFromHex,
   type StakeCredential,
-} from 'danogojs';
+} from '@danogojs/sdk';
 import { Data, type Network } from 'lucid-cardano';
 
 // This type should be generated from blueprint to verify the correctness of the config
@@ -107,15 +107,22 @@ export const ProtocolParams = ProtocolParamsSchema as unknown as Data.Static<
 
 export const defaultStakeCred: Record<Network, StakeCredential> = {
   Preview: inlineStakeCredentialFromHex(
-    '6e577a10b4453cfb78be3023db8884f1356f973282a62b502a090200'
+    '5353caa2dd476a96de54bfc5afa93820d929c5a1912d4aa839d1f958'
   ),
   Preprod: inlineStakeCredentialFromHex(
     '5353caa2dd476a96de54bfc5afa93820d929c5a1912d4aa839d1f958'
   ),
   Mainnet: inlineStakeCredentialFromHex(
-    '5353caa2dd476a96de54bfc5afa93820d929c5a1912d4aa839d1f958'
+    '6e577a10b4453cfb78be3023db8884f1356f973282a62b502a090200'
   ),
   Custom: inlineStakeCredentialFromHex(
     '5353caa2dd476a96de54bfc5afa93820d929c5a1912d4aa839d1f958'
   ),
+};
+
+export const redeemOverEpochs: Record<Network, bigint> = {
+  Preview: 1n,
+  Custom: 1n,
+  Preprod: 72n,
+  Mainnet: 72n,
 };
