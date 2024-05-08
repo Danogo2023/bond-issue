@@ -9,7 +9,7 @@ import {
   safeStringify,
   toInterface,
   type StakeCredential,
-} from 'danogojs';
+} from '@danogojs/sdk';
 import {
   Data,
   Lucid,
@@ -23,8 +23,10 @@ import {
   ProtocolParams,
   defaultStakeCred,
   platformConfig,
+  redeemOverEpochs,
   type BondIssueConfig,
 } from './config';
+import invariant from 'tiny-invariant';
 
 const { NETWORK, KOIOS_PROJECT_ID, SEED } = process.env;
 
@@ -32,6 +34,14 @@ class BondIssueDeployer extends Deployer {
   private lucid?: Lucid;
   // flags
   RETRY_PREVIOUS_DEPLOY = true;
+
+  constructor() {
+    super();
+    this.settings = {
+      minFund: 30_000_000n,
+      minFundUtxoCount: 8,
+    };
+  }
 
   async getLucidInstance(): Promise<Lucid> {
     if (!this.lucid) {
@@ -168,6 +178,7 @@ class BondIssueDeployer extends Deployer {
     const parameterizedParams = {
       config,
       defaultStakeCred: defaultStakeCred[NETWORK],
+      redeemOverEpochs: redeemOverEpochs[NETWORK],
       protocolNftPid,
       protocolNftName,
     };
@@ -186,7 +197,12 @@ class BondIssueDeployer extends Deployer {
       protocolNftName,
       config
     );
-    const bondNftPolicy = buildBondNftPolicy(protocolNftPid, protocolNftName);
+    const bondNftPolicy = buildBondNftPolicy(
+      protocolNftPid,
+      protocolNftName,
+      config,
+      parameterizedParams.redeemOverEpochs
+    );
     const bondNftSpending = buildBondNftSpending(
       protocolNftPid,
       protocolNftName,
@@ -328,10 +344,17 @@ class BondIssueDeployer extends Deployer {
         ]);
         return validator;
       },
-      buildBondNftPolicy: (protocolNftPid: string, protocolNftName: string) => {
+      buildBondNftPolicy: (
+        protocolNftPid: string,
+        protocolNftName: string,
+        config: BondIssueConfig,
+        redeemOverEpochs: bigint
+      ) => {
         const validator = getValidator('bond.mint_bond_nft', [
           protocolNftPid,
           protocolNftName,
+          config,
+          redeemOverEpochs,
         ]);
         return validator;
       },

@@ -1,14 +1,14 @@
 {
   "name": "scripts",
   "module": "index.ts",
-  "type": "module",
   "devDependencies": {
     "@types/bun": "latest"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
   },
+  "type": "module",
   "dependencies": {
-    "danogojs": "^1.0.6"
+    "@danogojs/sdk": "0.0.5"
   }
 }
